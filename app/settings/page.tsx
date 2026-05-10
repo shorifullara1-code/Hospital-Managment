@@ -23,12 +23,16 @@ export default function SettingsView() {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('hospital_settings');
       if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.name) setHospitalName(parsed.name);
-        if (parsed.phone) setHospitalPhone(parsed.phone);
-        if (parsed.email) setHospitalEmail(parsed.email);
-        if (parsed.address) setHospitalAddress(parsed.address);
-        if (parsed.logo) setHospitalLogo(parsed.logo);
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.name !== undefined) setHospitalName(parsed.name);
+          if (parsed.phone !== undefined) setHospitalPhone(parsed.phone);
+          if (parsed.email !== undefined) setHospitalEmail(parsed.email);
+          if (parsed.address !== undefined) setHospitalAddress(parsed.address);
+          if (parsed.logo !== undefined) setHospitalLogo(parsed.logo);
+        } catch (e) {
+          console.error("Error parsing settings:", e);
+        }
       }
     }
   }, []);
@@ -36,13 +40,29 @@ export default function SettingsView() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-         alert("Image size should be less than 2MB");
-         return;
-      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setHospitalLogo(reader.result as string);
+         const img = new Image();
+         img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDimension = 300;
+            let width = img.width;
+            let height = img.height;
+            if (width > height && width > maxDimension) {
+              height *= maxDimension / width;
+              width = maxDimension;
+            } else if (height > maxDimension) {
+              width *= maxDimension / height;
+              height = maxDimension;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+            setHospitalLogo(compressedBase64);
+         };
+         img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -52,18 +72,24 @@ export default function SettingsView() {
     setLoading(true);
     setTimeout(() => {
       if (typeof window !== 'undefined') {
-        localStorage.setItem('hospital_settings', JSON.stringify({
-          name: hospitalName,
-          phone: hospitalPhone,
-          email: hospitalEmail,
-          address: hospitalAddress,
-          logo: hospitalLogo
-        }));
+        try {
+          localStorage.setItem('hospital_settings', JSON.stringify({
+            name: hospitalName,
+            phone: hospitalPhone,
+            email: hospitalEmail,
+            address: hospitalAddress,
+            logo: hospitalLogo
+          }));
+          alert("Settings saved successfully.");
+        } catch (error) {
+          console.error("Failed to save to local storage", error);
+          alert("Failed to save settings. Please try again or clear browser data.");
+        }
       }
       setLoading(false);
-      alert("Settings saved successfully.");
-    }, 1000);
+    }, 500);
   };
+
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
