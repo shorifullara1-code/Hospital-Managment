@@ -11,6 +11,7 @@ import {
   Activity,
   FileText,
   Settings,
+  CreditCard
 } from "lucide-react";
 
 const sidebarLinks = [
@@ -19,6 +20,7 @@ const sidebarLinks = [
   { name: "Appointments", href: "/appointments", icon: Calendar },
   { name: "Doctors", href: "/doctors", icon: Stethoscope },
   { name: "Diagnostics", href: "/diagnostics", icon: Activity },
+  { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

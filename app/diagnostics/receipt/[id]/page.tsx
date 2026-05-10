@@ -10,6 +10,7 @@ export default function ReceiptView(props: { params: Promise<{ id: string }> }) 
   const [labData, setLabData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [testPrice, setTestPrice] = useState(0);
+  const [paidAmount, setPaidAmount] = useState(0);
   const [hospitalInfo, setHospitalInfo] = useState({
     name: "MedCore Hospital",
     phone: "+1 234 567 8900",
@@ -59,6 +60,18 @@ export default function ReceiptView(props: { params: Promise<{ id: string }> }) 
            }
         }
         setTestPrice(price);
+        
+        let pAmount = price;
+        const paidStorage = localStorage.getItem('diag_paid_labs');
+        if (paidStorage) {
+           const parsed = JSON.parse(paidStorage);
+           if (parsed[data.id] === true) {
+              pAmount = price;
+           } else if (parsed[data.id]) {
+              pAmount = Number(parsed[data.id]);
+           }
+        }
+        setPaidAmount(pAmount);
       }
       setLoading(false);
     };
@@ -151,9 +164,13 @@ export default function ReceiptView(props: { params: Promise<{ id: string }> }) 
                     <span className="text-gray-600 font-medium">Discount</span>
                     <span className="font-medium text-gray-900">$0</span>
                  </div>
+                 <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-gray-600 font-bold">Total Paid</span>
+                    <span className="font-bold text-green-600">${paidAmount}</span>
+                 </div>
                  <div className="flex justify-between py-4 mt-2">
-                    <span className="text-xl font-bold text-gray-900 tracking-tight">Total Paid</span>
-                    <span className="text-xl font-bold text-primary">${testPrice}</span>
+                    <span className="text-xl font-bold text-gray-900 tracking-tight">Remaining Due</span>
+                    <span className="text-xl font-bold text-primary">${Math.max(0, testPrice - paidAmount)}</span>
                  </div>
               </div>
            </div>

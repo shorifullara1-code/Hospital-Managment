@@ -28,7 +28,15 @@ export default function DiagnosticsView() {
   const [adding, setAdding] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [paidLabs, setPaidLabs] = useState<Record<string, boolean>>({});
+  const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
+
+  const isLabsFullyPaid = (lab: any) => {
+    const test = testCatalog.find(t => t.name === lab.test_name);
+    const price = test ? test.price : 50;
+    const paidVal = paidLabs[lab.id];
+    if (paidVal === true) return true;
+    return (Number(paidVal) || 0) >= price;
+  };
 
   // Catalog Form
   const [catalogForm, setCatalogForm] = useState({ name: "", category: "Hematology", price: "0" });
@@ -347,14 +355,22 @@ export default function DiagnosticsView() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap">
-                          {paidLabs[lab.id] ? (
+                          {isLabsFullyPaid(lab) ? (
                             <Button variant="ghost" size="sm" className="mr-2 text-green-600" onClick={() => window.open(`/diagnostics/receipt/${lab.id}`, '_blank')}>
                               <FileText className="h-4 w-4 mr-2" />
                               Receipt
                             </Button>
                           ) : (
-                            <Button variant="outline" size="sm" className="mr-2 border-green-600 text-green-600 hover:bg-green-50" onClick={() => handlePay(lab.id)}>
-                              Pay Now
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mr-2 border-green-600 text-green-600 hover:bg-green-50" 
+                              onClick={() => {
+                                 // Redirect to billing page for partial or full payments
+                                 window.location.href = '/billing';
+                              }}
+                            >
+                              Collect Dues
                             </Button>
                           )}
                           {lab.status === "Processing" && (
