@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar as CalendarIcon, Clock, MoreHorizontal, Plus, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MoreHorizontal, Plus, Loader2, ScanBarcode } from "lucide-react";
+import { Scanner } from '@yudiel/react-qr-scanner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +61,7 @@ export default function AppointmentsView() {
   const [isOpen, setIsOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [search, setSearch] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
 
   const [formData, setFormData] = useState({
     patient_id: "",
@@ -148,6 +150,32 @@ export default function AppointmentsView() {
             </DialogHeader>
             <form onSubmit={handleRegister}>
               <div className="grid gap-4 py-4">
+                <div className="flex justify-end">
+                   <Button type="button" variant="outline" size="sm" onClick={() => setShowScanner(!showScanner)}>
+                     <ScanBarcode className="mr-2 h-4 w-4" />
+                     {showScanner ? "Close Scanner" : "Scan Patient Barcode"}
+                   </Button>
+                </div>
+                {showScanner && (
+                   <div className="w-full flex justify-center border rounded-md overflow-hidden bg-black">
+                     <div className="w-[300px] h-[300px] relative">
+                       <Scanner
+                         onScan={(result) => {
+                           if (result && result.length > 0) {
+                             const text = result[0].rawValue;
+                             const found = patients.find(p => p.patient_id === text);
+                             if (found) {
+                               setFormData({...formData, patient_id: found.id});
+                               setShowScanner(false);
+                             } else {
+                               alert("Patient not found for barcode: " + text);
+                             }
+                           }
+                         }}
+                       />
+                     </div>
+                   </div>
+                )}
                 <div className="grid gap-2">
                   <Label>Patient *</Label>
                   <Input 
