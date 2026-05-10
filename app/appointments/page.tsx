@@ -68,7 +68,8 @@ export default function AppointmentsView() {
     doctor_id: "",
     date: "",
     time: "10:00",
-    fee_amount: 50
+    fee_amount: 50,
+    discount: 0
   });
 
   const fetchData = async () => {
@@ -108,12 +109,12 @@ export default function AppointmentsView() {
       appointment_date: formData.date,
       appointment_time: formData.time + ":00",
       status: "Scheduled",
-      fee_amount: formData.fee_amount
+      fee_amount: Math.max(0, formData.fee_amount - formData.discount)
     }]);
 
     if (!error) {
       setIsOpen(false);
-      setFormData({ patient_id: "", doctor_id: "", date: "", time: "10:00", fee_amount: 50 });
+      setFormData({ patient_id: "", doctor_id: "", date: "", time: "10:00", fee_amount: 50, discount: 0 });
       fetchData();
     } else {
       console.error(error);
@@ -256,10 +257,19 @@ export default function AppointmentsView() {
                     <Input type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Consultation Fee ($)</Label>
-                  <Input type="number" required value={formData.fee_amount} onChange={e => setFormData({...formData, fee_amount: parseFloat(e.target.value) || 0})} />
-                  <p className="text-xs text-muted-foreground">This fee will be collected from the patient.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Consultation Fee ($)</Label>
+                    <Input type="number" required value={formData.fee_amount} onChange={e => setFormData({...formData, fee_amount: parseFloat(e.target.value) || 0})} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Discount ($)</Label>
+                    <Input type="number" value={formData.discount} onChange={e => setFormData({...formData, discount: parseFloat(e.target.value) || 0})} />
+                  </div>
+                </div>
+                <div className="bg-muted p-3 rounded-md flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">Net Payable:</span>
+                  <span className="text-xl font-bold text-green-700">${Math.max(0, formData.fee_amount - formData.discount)}</span>
                 </div>
               </div>
               <div className="flex justify-end pt-4">

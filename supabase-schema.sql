@@ -48,6 +48,7 @@ CREATE TABLE public.appointments (
     appointment_time TIME NOT NULL,
     status VARCHAR(20) DEFAULT 'Scheduled',
     fee_amount DECIMAL(10, 2),
+    discount_amount DECIMAL(10, 2) DEFAULT 0.00,
     payment_status VARCHAR(20) DEFAULT 'Pending'
 );
 
