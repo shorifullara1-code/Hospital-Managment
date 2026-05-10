@@ -1,9 +1,10 @@
 "use client";
 
 import { use } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,12 +34,10 @@ export default function PrescriptionPage(props: PageProps) {
   return (
     <div className="min-h-screen bg-muted/30 print:bg-white pb-12">
       <div className="max-w-[21cm] mx-auto pt-6 px-4 mb-4 flex justify-between items-center print:hidden">
-        <Button variant="ghost" asChild>
-          <Link href="/appointments">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Appointments
-          </Link>
-        </Button>
+        <Link href="/appointments" className={cn(buttonVariants({ variant: "ghost" }))}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Appointments
+        </Link>
         <Button onClick={handlePrint}>
           <Printer className="mr-2 h-4 w-4" />
           Print Prescription
