@@ -1,28 +1,42 @@
-"use client";
+"use client"
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
-export function RevenueChart({ data }: { data: any[] }) {
+interface RevenueChartProps {
+  data: any[]
+}
+
+export function RevenueChart({ data }: RevenueChartProps) {
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data}>
-        <XAxis
-          dataKey="name"
-          stroke="#888888"
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-        />
-        <YAxis
-          stroke="#888888"
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) => `$${value}`}
-        />
-        <Tooltip cursor={{ fill: "transparent" }} />
-        <Bar dataKey="revenue" fill="var(--color-primary, #0284c7)" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+    <div className="h-[300px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data}>
+          <XAxis
+            dataKey="name"
+            stroke="#888888"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            stroke="#888888"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => `৳${value}`}
+          />
+          <Tooltip 
+            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+          />
+          <Line
+            type="monotone"
+            dataKey="revenue"
+            stroke="hsl(var(--primary))"
+            strokeWidth={2}
+            dot={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
 }

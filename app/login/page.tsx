@@ -26,15 +26,25 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    // Timeout alert after 10 seconds if nothing happens
+    const timeout = setTimeout(() => {
+      if (loading) {
+        setError('The request is taking longer than expected. Please check your Supabase URL and API Key in the environment settings.');
+        setLoading(false);
+      }
+    }, 10000);
+
     try {
       const success = await login(username.trim(), password);
+      clearTimeout(timeout);
       console.log("Login success:", success);
       if (!success) {
-        setError('Invalid username or password. Please run the SQL code in Supabase to ensure the "staff" table is created and contains the admin user.');
+        setError('Invalid username or password. If you haven\'t already, please run the SQL code in your Supabase SQL Editor to create the "staff" table and admin user.');
       }
     } catch (err) {
+      clearTimeout(timeout);
       console.error("Login component error:", err);
-      setError('A connection error occurred. Please check your Supabase connection.');
+      setError('A connection error occurred. Make sure your NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are correctly set.');
     } finally {
       setLoading(false);
     }

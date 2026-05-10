@@ -1,9 +1,8 @@
-"use client";
+'use client'
 
-import { Bell, Search, Menu } from "lucide-react";
+import { Search, Bell, Menu, User, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { buttonVariants } from "@/components/ui/button";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,28 +23,29 @@ export function Header() {
     <header className="h-16 border-b bg-background flex items-center justify-between px-4 sm:px-6">
       <div className="flex items-center gap-4">
         <Sheet>
-          <SheetTrigger className={buttonVariants({ variant: "ghost", size: "icon", className: "md:hidden" })}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
               <Menu className="h-5 w-5" />
+            </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
             <Sidebar />
           </SheetContent>
         </Sheet>
-        
-        <div className="relative w-full max-w-sm hidden sm:flex items-center">
-          <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="relative hidden sm:block">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Search patients, doctors..."
-            className="w-full bg-muted/50 shadow-none appearance-none pl-8 md:w-80 lg:w-96"
+            className="w-64 pl-8 md:w-80 lg:w-[400px]"
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" className="relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-600 block" />
+      <div className="flex items-center gap-2 sm:gap-4">
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5 text-muted-foreground" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-background"></span>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger className={buttonVariants({ variant: "ghost", className: "relative h-8 w-8 rounded-full" })}>
@@ -67,6 +67,7 @@ export function Header() {
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

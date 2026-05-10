@@ -27,45 +27,42 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {dashboardStats.map((stat, index) => (
-          <Card key={index}>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {dashboardStats.map((stat) => (
+          <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {stat.title}
               </CardTitle>
-              {index === 0 ? <Users className="h-4 w-4 text-muted-foreground" /> :
-               index === 1 ? <Calendar className="h-4 w-4 text-muted-foreground" /> :
-               index === 2 ? <Activity className="h-4 w-4 text-muted-foreground" /> :
-               <AlertCircle className="h-4 w-4 text-muted-foreground" />}
+              <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className={`text-xs flex items-center ${stat.trend === "up" ? "text-green-500" : stat.trend === "down" ? "text-red-500" : "text-muted-foreground"}`}>
-                {stat.trend === "up" ? <ArrowUpRight className="h-3 w-3 mr-1" /> : stat.trend === "down" ? <ArrowDownRight className="h-3 w-3 mr-1" /> : null}
-                {stat.change} from last month
+              <p className="text-xs text-muted-foreground mt-1">
+                <span className={stat.trend === "up" ? "text-emerald-500" : "text-rose-500"}>
+                  {stat.change}
+                </span>{" "}
+                from last month
               </p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="lg:col-span-4">
           <CardHeader>
-            <CardTitle>Overview (Weekly Revenue)</CardTitle>
+            <CardTitle>Revenue Overview</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <RevenueChart data={revenueData} />
-            </div>
+            <RevenueChart data={revenueData} />
           </CardContent>
         </Card>
-        <Card className="col-span-3">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Recent Appointments</CardTitle>
             <CardDescription>
-              There are {dashboardStats[1].value} appointments scheduled for today.
+              You have 12 appointments today.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -73,25 +70,23 @@ export default function Dashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Patient</TableHead>
-                  <TableHead>Time</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentAppointments.map((appointment) => (
                   <TableRow key={appointment.id}>
                     <TableCell>
-                      <div className="font-medium">{appointment.patient}</div>
-                      <div className="text-xs text-muted-foreground md:hidden lg:block">
-                        {appointment.doctor}
-                      </div>
+                      <div className="font-medium">{appointment.patientName}</div>
+                      <div className="text-xs text-muted-foreground">{appointment.doctorName}</div>
                     </TableCell>
-                    <TableCell>{appointment.time}</TableCell>
                     <TableCell>
-                      <Badge variant={appointment.status === "Completed" ? "secondary" : appointment.status === "In Progress" ? "default" : "outline"}>
+                      <Badge variant={appointment.status === "Completed" ? "default" : "secondary"}>
                         {appointment.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">{appointment.time}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

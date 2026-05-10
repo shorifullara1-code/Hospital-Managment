@@ -1,6 +1,6 @@
-import type {Metadata} from 'next';
-import './globals.css';
+import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AppLayout } from "@/components/layout/app-layout";
 import { AuthProvider } from "@/lib/auth-context";
@@ -12,7 +12,11 @@ export const metadata: Metadata = {
   description: 'A comprehensive web application for hospital administration, patient management, and diagnostic tracking.',
 };
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body suppressHydrationWarning>

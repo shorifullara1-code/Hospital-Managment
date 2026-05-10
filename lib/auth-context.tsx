@@ -66,26 +66,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('staff')
         .select('*')
         .eq('username', username)
-        .eq('password', password)
-        .maybeSingle(); // maybeSingle handles 0 rows without error object
+        .eq('password', password);
 
-      if (error || !data) {
-        console.error("Login failed:", error || "User not found");
+      if (error) {
+        console.error("Supabase Error during login:", error.message);
+        throw new Error(error.message);
+      }
+
+      if (!data || data.length === 0) {
+        console.error("Login failed: User not found");
         return false;
       }
 
-      let perms = [];
+      const userData = data[0];
+      let perms: string[] = [];
+      
       try {
-        perms = typeof data.permissions === 'string' ? JSON.parse(data.permissions) : (data.permissions || []);
+        if (Array.isArray(userData.permissions)) {
+          perms = userData.permissions;
+        } else if (typeof userData.permissions === 'string') {
+          perms = JSON.parse(userData.permissions);
+        }
       } catch (e) {
         console.error("Error parsing permissions:", e);
       }
 
       const staffUser: StaffUser = {
-        id: data.id,
-        username: data.username,
-        full_name: data.full_name,
-        role: data.role,
+        id: userData.id,
+        username: userData.username,
+        full_name: userData.full_name,
+        role: userData.role,
         permissions: Array.isArray(perms) ? perms : []
       };
 

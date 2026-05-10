@@ -1,71 +1,47 @@
+import { Users, Calendar, Activity, CreditCard } from "lucide-react";
+
 export const dashboardStats = [
   {
     title: "Total Patients",
-    value: "14,245",
-    change: "+12.5%",
+    value: "1,284",
+    icon: Users,
     trend: "up",
+    change: "+12%"
   },
   {
-    title: "Appointments Today",
-    value: "128",
-    change: "+4.1%",
+    title: "Appointments",
+    value: "84",
+    icon: Calendar,
     trend: "up",
+    change: "+4%"
   },
   {
-    title: "Lab Reports Pending",
-    value: "35",
-    change: "-2.3%",
-    trend: "down",
-  },
-  {
-    title: "Available Beds",
+    title: "Lab Tests",
     value: "42",
-    change: "0%",
-    trend: "neutral",
+    icon: Activity,
+    trend: "down",
+    change: "-2%"
   },
+  {
+    title: "Revenue",
+    value: "৳45,200",
+    icon: CreditCard,
+    trend: "up",
+    change: "+18%"
+  }
 ];
 
 export const recentAppointments = [
-  {
-    id: "APT-001",
-    patient: "Eleanor Pena",
-    doctor: "Dr. Sarah Smith",
-    department: "Cardiology",
-    time: "09:00 AM",
-    status: "Completed",
-  },
-  {
-    id: "APT-002",
-    patient: "Ralph Edwards",
-    doctor: "Dr. Jacob Jones",
-    department: "Neurology",
-    time: "10:30 AM",
-    status: "In Progress",
-  },
-  {
-    id: "APT-003",
-    patient: "Theresa Webb",
-    doctor: "Dr. Guy Hawkins",
-    department: "Orthopedics",
-    time: "02:15 PM",
-    status: "Waiting",
-  },
-  {
-    id: "APT-004",
-    patient: "Cody Fisher",
-    doctor: "Dr. Kristin Watson",
-    department: "Pediatrics",
-    time: "04:00 PM",
-    status: "Scheduled",
-  },
+  { id: "1", patientName: "Rahim Ali", doctorName: "Dr. Ahmed", status: "Completed", time: "09:00 AM" },
+  { id: "2", patientName: "Sara Khan", doctorName: "Dr. Ahmed", status: "Pending", time: "10:30 AM" },
+  { id: "3", patientName: "Karim Mia", doctorName: "Dr. Sultana", status: "In Progress", time: "11:15 AM" },
 ];
 
 export const revenueData = [
-  { name: "Jan", revenue: 4000 },
-  { name: "Feb", revenue: 3000 },
-  { name: "Mar", revenue: 2000 },
-  { name: "Apr", revenue: 2780 },
-  { name: "May", revenue: 1890 },
-  { name: "Jun", revenue: 2390 },
-  { name: "Jul", revenue: 3490 },
+  { name: 'Jan', revenue: 4000 },
+  { name: 'Feb', revenue: 3000 },
+  { name: 'Mar', revenue: 5000 },
+  { name: 'Apr', revenue: 4500 },
+  { name: 'May', revenue: 6000 },
+  { name: 'Jun', revenue: 5500 },
 ];
