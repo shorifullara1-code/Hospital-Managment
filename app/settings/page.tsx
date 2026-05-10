@@ -7,19 +7,56 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Save, Building, Paintbrush, ShieldCheck, Database } from "lucide-react";
+import { Copy, Save, Building, Paintbrush, ShieldCheck, Database, Users as UsersIcon, Plus, Trash2, Key } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+
+const availablePermissions = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "appointments", label: "Appointments" },
+  { id: "patients", label: "Patients" },
+  { id: "doctors", label: "Doctors" },
+  { id: "diagnostics", label: "Diagnostics" },
+  { id: "billing", label: "Billing" },
+  { id: "reports", label: "Reports" },
+  { id: "settings", label: "Settings" }
+];
 
 export default function SettingsView() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
+  
   const [loading, setLoading] = useState(false);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffList, setStaffList] = useState<any[]>([]);
 
   const [hospitalName, setHospitalName] = useState("MedCore Hospital");
   const [hospitalPhone, setHospitalPhone] = useState("+1 234 567 8900");
   const [hospitalEmail, setHospitalEmail] = useState("contact@medcore.com");
   const [hospitalAddress, setHospitalAddress] = useState("123 Health Avenue, Medical District, Cityville, State 12345");
   const [hospitalLogo, setHospitalLogo] = useState("");
+  
+  const [newStaff, setNewStaff] = useState({
+    username: "",
+    password: "",
+    full_name: "",
+    role: "Staff",
+    permissions: [] as string[]
+  });
+
+  const fetchStaff = async () => {
+    if (!isAdmin) return;
+    setStaffLoading(true);
+    const { data, error } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
+    if (!error && data) setStaffList(data);
+    setStaffLoading(false);
+  };
 
   useEffect(() => {
+    fetchStaff();
+    // ... existing initialization ...
     // Load from Supabase first, fallback to local storage
     const fetchSettings = async () => {
       const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
@@ -120,8 +157,57 @@ export default function SettingsView() {
   };
 
 
+  const handleAddStaff = async () => {
+    if (!newStaff.username || !newStaff.password || !newStaff.full_name) {
+      alert("Please fill in all fields.");
+      return;
+    }
+    setStaffLoading(true);
+    const { error } = await supabase.from('staff').insert([newStaff]);
+    if (!error) {
+      alert("Staff account created successfully!");
+      setNewStaff({
+        username: "",
+        password: "",
+        full_name: "",
+        role: "Staff",
+        permissions: [] as string[]
+      });
+      fetchStaff();
+    } else {
+      alert("Error: " + error.message);
+    }
+    setStaffLoading(false);
+  };
+
+  const handleDeleteStaff = async (id: string, username: string) => {
+    if (username === 'admin') {
+      alert("Cannot delete primary admin account.");
+      return;
+    }
+    if (!confirm("Are you sure you want to delete this staff account?")) return;
+    
+    setStaffLoading(true);
+    const { error } = await supabase.from('staff').delete().eq('id', id);
+    if (!error) {
+      fetchStaff();
+    }
+    setStaffLoading(false);
+  };
+
+  const togglePermission = (permId: string) => {
+    setNewStaff(prev => {
+      const isSelected = prev.permissions.includes(permId);
+      if (isSelected) {
+        return { ...prev, permissions: prev.permissions.filter(p => p !== permId) };
+      } else {
+        return { ...prev, permissions: [...prev.permissions, permId] };
+      }
+    });
+  };
+
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="flex flex-col gap-6 max-w-5xl">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
@@ -130,9 +216,10 @@ export default function SettingsView() {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[620px]">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          {isAdmin && <TabsTrigger value="staff">Staff Management</TabsTrigger>}
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="database">Database</TabsTrigger>
         </TabsList>
@@ -211,6 +298,113 @@ export default function SettingsView() {
             </CardFooter>
           </Card>
         </TabsContent>
+        {isAdmin && (
+          <TabsContent value="staff">
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center"><Plus className="h-5 w-5 mr-2" /> Add New Staff member</CardTitle>
+                  <CardDescription>Create an account with specific ID/Password and access permissions.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <Label>Full Name</Label>
+                       <Input value={newStaff.full_name} onChange={e => setNewStaff({...newStaff, full_name: e.target.value})} placeholder="e.g. John Doe" />
+                    </div>
+                    <div className="space-y-2">
+                       <Label>Role</Label>
+                       <select 
+                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                         value={newStaff.role}
+                         onChange={e => setNewStaff({...newStaff, role: e.target.value})}
+                       >
+                         <option value="Staff">Staff member</option>
+                         <option value="Admin">Administrator</option>
+                       </select>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <Label>Log-in ID (Username)</Label>
+                       <Input value={newStaff.username} onChange={e => setNewStaff({...newStaff, username: e.target.value})} placeholder="e.g. reception_1" />
+                    </div>
+                    <div className="space-y-2">
+                       <Label>Password</Label>
+                       <Input type="password" value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} placeholder="••••••••" />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>Permissions (Access Sections)</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-muted/20 p-4 rounded-lg border">
+                      {availablePermissions.map((perm) => (
+                        <div key={perm.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`perm-${perm.id}`} 
+                            checked={newStaff.permissions.includes(perm.id)} 
+                            onCheckedChange={() => togglePermission(perm.id)}
+                          />
+                          <Label htmlFor={`perm-${perm.id}`} className="text-sm cursor-pointer">{perm.label}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button onClick={handleAddStaff} disabled={staffLoading}>
+                    <Plus className="h-4 w-4 mr-2" /> Create Staff Account
+                  </Button>
+                </CardFooter>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Existing Staff Accounts</CardTitle>
+                  <CardDescription>Manage your team's accounts and access levels.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 border-b">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Name</th>
+                          <th className="px-4 py-2 text-left">ID (Username)</th>
+                          <th className="px-4 py-2 text-left">Role</th>
+                          <th className="px-4 py-2 text-left">Access</th>
+                          <th className="px-4 py-2 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staffList.map((staff) => (
+                          <tr key={staff.id} className="border-b">
+                            <td className="px-4 py-2 font-medium">{staff.full_name}</td>
+                            <td className="px-4 py-2 text-muted-foreground">{staff.username}</td>
+                            <td className="px-4 py-2">
+                               <Badge variant={staff.role === 'Admin' ? 'default' : 'secondary'}>{staff.role}</Badge>
+                            </td>
+                            <td className="px-4 py-2">
+                              <div className="flex flex-wrap gap-1">
+                                {(staff.permissions || []).map((p: string) => (
+                                  <Badge key={p} variant="outline" className="text-[10px] uppercase">{p}</Badge>
+                                ))}
+                                {staff.role === 'Admin' && <Badge variant="outline" className="text-[10px] uppercase">ALL ACCESS</Badge>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteStaff(staff.id, staff.username)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
         <TabsContent value="security">
           <Card>
             <CardHeader>

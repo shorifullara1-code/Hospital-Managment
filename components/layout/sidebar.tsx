@@ -14,19 +14,22 @@ import {
   CreditCard
 } from "lucide-react";
 
+import { useAuth } from "@/lib/auth-context";
+
 const sidebarLinks = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Patients", href: "/patients", icon: Users },
-  { name: "Appointments", href: "/appointments", icon: Calendar },
-  { name: "Doctors", href: "/doctors", icon: Stethoscope },
-  { name: "Diagnostics", href: "/diagnostics", icon: Activity },
-  { name: "Billing", href: "/billing", icon: CreditCard },
-  { name: "Reports", href: "/reports", icon: FileText },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, section: "dashboard" },
+  { name: "Patients", href: "/patients", icon: Users, section: "patients" },
+  { name: "Appointments", href: "/appointments", icon: Calendar, section: "appointments" },
+  { name: "Doctors", href: "/doctors", icon: Stethoscope, section: "doctors" },
+  { name: "Diagnostics", href: "/diagnostics", icon: Activity, section: "diagnostics" },
+  { name: "Billing", href: "/billing", icon: CreditCard, section: "billing" },
+  { name: "Reports", href: "/reports", icon: FileText, section: "reports" },
+  { name: "Settings", href: "/settings", icon: Settings, section: "settings" },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const { hasPermission } = useAuth();
 
   return (
     <aside className={cn("w-64 border-r bg-muted/30", className)}>
@@ -37,6 +40,8 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="py-4">
         <nav className="space-y-1 px-2">
           {sidebarLinks.map((link) => {
+            if (!hasPermission(link.section)) return null;
+            
             const isActive = pathname === link.href;
             return (
               <Link

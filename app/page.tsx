@@ -1,3 +1,5 @@
+'use client'
+
 import { Users, AlertCircle, ArrowUpRight, ArrowDownRight, Activity, Calendar } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,14 +13,17 @@ import {
 } from "@/components/ui/table";
 import { dashboardStats, recentAppointments, revenueData } from "@/lib/data";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, Dr. Smith. Here's an overview of today's activities.
+          Welcome back, {user?.full_name || 'Staff'}. Here's an overview of today's activities.
         </p>
       </div>
 
