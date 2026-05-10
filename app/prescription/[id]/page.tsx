@@ -25,8 +25,10 @@ export default function PrescriptionPage(props: PageProps) {
     address: "123 Health Avenue, Medical District, Cityville, State 12345",
     logo: ""
   });
+  const [generationTime, setGenerationTime] = useState("");
   
   useEffect(() => {
+    setGenerationTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     const fetchHospitalInfo = async () => {
       const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
       if (data) {
@@ -143,6 +145,7 @@ export default function PrescriptionPage(props: PageProps) {
           <div className="flex gap-8">
             <p className="text-sm"><span className="font-semibold text-gray-500">Reg No:</span> {appointment.patientReg}</p>
             <p className="text-sm"><span className="font-semibold text-gray-500">Date:</span> {appointment.date}</p>
+            <p className="text-sm"><span className="font-semibold text-gray-500">Time:</span> {generationTime}</p>
             <p className="text-sm"><span className="font-semibold text-gray-500">Consultation Fee:</span> ${appointment.fee}</p>
           </div>
         </div>
@@ -230,6 +233,10 @@ export default function PrescriptionPage(props: PageProps) {
             <div className="border-b border-gray-400 h-10 mb-2"></div>
             <p>Doctor's Signature</p>
           </div>
+        </div>
+
+        <div className="mt-auto pt-4 text-center border-t border-gray-100">
+           <p className="text-[10px] text-gray-400 font-mono tracking-widest uppercase">Software Developed By Shoriful Islam</p>
         </div>
       </div>
     </div>
