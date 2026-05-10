@@ -65,6 +65,15 @@ CREATE TABLE public.diagnostics_labs (
     report_url TEXT
 );
 
+CREATE TABLE public.hospital_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    name TEXT,
+    phone TEXT,
+    email TEXT,
+    address TEXT,
+    logo TEXT
+);
+
 CREATE TABLE public.prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -82,6 +91,7 @@ ALTER TABLE public.doctors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.diagnostics_labs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.prescriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hospital_settings ENABLE ROW LEVEL SECURITY;
 
 -- Note: For a real application, you would configure proper RLS policies
 -- depending on roles (Admin, Doctor, Receptionist, Patient). 
@@ -111,3 +121,9 @@ CREATE POLICY "Allow anonymous read access" on public.prescriptions FOR SELECT U
 CREATE POLICY "Allow anonymous insert access" on public.prescriptions FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow anonymous update access" on public.prescriptions FOR UPDATE USING (true);
 CREATE POLICY "Allow anonymous delete access" on public.prescriptions FOR DELETE USING (true);
+
+CREATE POLICY "Allow anonymous read access" on public.hospital_settings FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.hospital_settings FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.hospital_settings FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.hospital_settings FOR DELETE USING (true);
+

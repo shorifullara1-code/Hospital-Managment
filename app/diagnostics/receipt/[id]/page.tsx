@@ -19,14 +19,24 @@ export default function ReceiptView(props: { params: Promise<{ id: string }> }) 
   });
   
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('hospital_settings');
-      if (stored) {
-        try {
-          setHospitalInfo(prev => ({ ...prev, ...JSON.parse(stored) }));
-        } catch (e) {}
+    const fetchHospitalInfo = async () => {
+      const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
+      if (data) {
+        setHospitalInfo(prev => ({ ...prev, ...data }));
+        // Cache locally
+        if (typeof window !== 'undefined') localStorage.setItem('hospital_settings', JSON.stringify(data));
+      } else {
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('hospital_settings');
+          if (stored) {
+            try {
+              setHospitalInfo(prev => ({ ...prev, ...JSON.parse(stored) }));
+            } catch (e) {}
+          }
+        }
       }
-    }
+    };
+    fetchHospitalInfo();
 
     const fetchReceipt = async () => {
       const { data, error } = await supabase

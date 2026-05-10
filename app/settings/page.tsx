@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Copy, Save, Building, Paintbrush, ShieldCheck, Database } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function SettingsView() {
   const [loading, setLoading] = useState(false);
@@ -19,22 +20,39 @@ export default function SettingsView() {
   const [hospitalLogo, setHospitalLogo] = useState("");
 
   useEffect(() => {
-    // Load from local storage
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('hospital_settings');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.name !== undefined) setHospitalName(parsed.name);
-          if (parsed.phone !== undefined) setHospitalPhone(parsed.phone);
-          if (parsed.email !== undefined) setHospitalEmail(parsed.email);
-          if (parsed.address !== undefined) setHospitalAddress(parsed.address);
-          if (parsed.logo !== undefined) setHospitalLogo(parsed.logo);
-        } catch (e) {
-          console.error("Error parsing settings:", e);
+    // Load from Supabase first, fallback to local storage
+    const fetchSettings = async () => {
+      const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
+      
+      if (data) {
+        if (data.name) setHospitalName(data.name);
+        if (data.phone) setHospitalPhone(data.phone);
+        if (data.email) setHospitalEmail(data.email);
+        if (data.address) setHospitalAddress(data.address);
+        if (data.logo) setHospitalLogo(data.logo);
+        
+        // Update local storage cache
+        localStorage.setItem('hospital_settings', JSON.stringify(data));
+      } else {
+        // Fallback to local storage
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('hospital_settings');
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed.name !== undefined) setHospitalName(parsed.name);
+              if (parsed.phone !== undefined) setHospitalPhone(parsed.phone);
+              if (parsed.email !== undefined) setHospitalEmail(parsed.email);
+              if (parsed.address !== undefined) setHospitalAddress(parsed.address);
+              if (parsed.logo !== undefined) setHospitalLogo(parsed.logo);
+            } catch (e) {
+              console.error("Error parsing settings:", e);
+            }
+          }
         }
       }
-    }
+    };
+    fetchSettings();
   }, []);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,26 +86,37 @@ export default function SettingsView() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hospital_settings', JSON.stringify({
-            name: hospitalName,
-            phone: hospitalPhone,
-            email: hospitalEmail,
-            address: hospitalAddress,
-            logo: hospitalLogo
-          }));
-          alert("Settings saved successfully.");
-        } catch (error) {
-          console.error("Failed to save to local storage", error);
-          alert("Failed to save settings. Please try again or clear browser data.");
-        }
+    
+    const settingsData = {
+      name: hospitalName,
+      phone: hospitalPhone,
+      email: hospitalEmail,
+      address: hospitalAddress,
+      logo: hospitalLogo
+    };
+
+    try {
+      // Try to save to Supabase Database
+      const { error } = await supabase.from('hospital_settings').upsert({ id: 1, ...settingsData });
+      
+      if (error) {
+        console.error("Error saving to Supabase:", error);
+        alert("Failed to save to database. Settings are only saved locally for now.");
+      } else {
+        alert("Settings saved successfully.");
       }
+
+      // Always save to local storage as fallback
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hospital_settings', JSON.stringify(settingsData));
+      }
+    } catch (e) {
+        console.error("Unexpected error saving settings:", e);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
 
