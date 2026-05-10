@@ -1,10 +1,13 @@
-import { patientsData } from "@/lib/patients-data";
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, UserPlus, Filter } from "lucide-react";
+import { Search, Plus, UserPlus, Filter, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,7 +27,80 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+type Patient = {
+  id: string;
+  patient_id: string;
+  full_name: string;
+  age: number;
+  gender: string;
+  blood_group: string;
+  phone: string;
+  last_visit: string;
+  status: string;
+};
+
 export default function PatientsView() {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const [formData, setFormData] = useState({
+    name: "",
+    age: "",
+    gender: "",
+    phone: "",
+    blood_group: "O+",
+  });
+
+  const fetchPatients = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("patients").select("*").order("created_at", { ascending: false });
+    if (!error && data) {
+      setPatients(data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) return;
+    setRegistering(true);
+
+    const randomNum = Math.floor(10000 + Math.random() * 90000);
+    const patient_id = `PT-${randomNum}`;
+
+    const { error } = await supabase.from("patients").insert([{
+      patient_id,
+      full_name: formData.name,
+      age: parseInt(formData.age) || null,
+      gender: formData.gender,
+      blood_group: formData.blood_group,
+      phone: formData.phone,
+      status: "Active"
+    }]);
+
+    if (!error) {
+      setIsOpen(false);
+      setFormData({ name: "", age: "", gender: "", phone: "", blood_group: "O+" });
+      fetchPatients();
+    } else {
+      console.error(error);
+      alert("Error registering patient: " + error.message);
+    }
+    setRegistering(false);
+  };
+
+  const filteredPatients = patients.filter(patient => 
+    patient.full_name?.toLowerCase().includes(search.toLowerCase()) || 
+    patient.patient_id?.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -35,7 +111,7 @@ export default function PatientsView() {
           </p>
         </div>
         
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger className={buttonVariants()}>
             <UserPlus className="mr-2 h-4 w-4" />
             Add New Patient
@@ -47,38 +123,43 @@ export default function PatientsView() {
                 Enter the details of the new patient here. Click save when you're done.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="John Doe" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleRegister}>
+              <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="age">Age</Label>
-                  <Input id="age" type="number" placeholder="30" />
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="John Doe" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="age">Age</Label>
+                    <Input id="age" type="number" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} placeholder="30" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="gender">Gender</Label>
+                    <Select value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v || "" })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" placeholder="+1 (555) 000-0000" />
+              <div className="flex justify-end pt-4">
+                <Button type="submit" disabled={registering}>
+                  {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Save Patient
+                </Button>
               </div>
-            </div>
-            <div className="flex justify-end pt-4">
-              <Button type="submit">Save Patient</Button>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -94,6 +175,8 @@ export default function PatientsView() {
                   type="search"
                   placeholder="Search by name or ID..."
                   className="pl-8 h-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <Button variant="outline" size="icon" className="h-9 w-9">
@@ -117,14 +200,26 @@ export default function PatientsView() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {patientsData.map((patient) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredPatients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No patients found. Add one to get started.
+                  </TableCell>
+                </TableRow>
+              ) : filteredPatients.map((patient) => (
                 <TableRow key={patient.id}>
-                  <TableCell className="font-medium">{patient.id}</TableCell>
-                  <TableCell>{patient.name}</TableCell>
-                  <TableCell>{patient.age} / {patient.gender}</TableCell>
-                  <TableCell>{patient.bloodGroup}</TableCell>
-                  <TableCell>{patient.phone}</TableCell>
-                  <TableCell>{patient.lastVisit}</TableCell>
+                  <TableCell className="font-medium">{patient.patient_id}</TableCell>
+                  <TableCell>{patient.full_name}</TableCell>
+                  <TableCell>{patient.age || '-'} / {patient.gender || '-'}</TableCell>
+                  <TableCell>{patient.blood_group || '-'}</TableCell>
+                  <TableCell>{patient.phone || '-'}</TableCell>
+                  <TableCell>{patient.last_visit || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={patient.status === "Active" ? "default" : "secondary"}>
                       {patient.status}
