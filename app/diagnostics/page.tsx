@@ -28,6 +28,7 @@ export default function DiagnosticsView() {
   const [adding, setAdding] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
+  const [paidLabs, setPaidLabs] = useState<Record<string, boolean>>({});
 
   // Catalog Form
   const [catalogForm, setCatalogForm] = useState({ name: "", category: "Hematology", price: "0" });
@@ -69,7 +70,18 @@ export default function DiagnosticsView() {
       setTestCatalog(defaultCatalog);
       localStorage.setItem("diag_catalog", JSON.stringify(defaultCatalog));
     }
+    
+    const paidStorage = localStorage.getItem('diag_paid_labs');
+    if (paidStorage) {
+      setPaidLabs(JSON.parse(paidStorage));
+    }
   }, []);
+
+  const handlePay = (labId: string) => {
+    const newPaid = { ...paidLabs, [labId]: true };
+    setPaidLabs(newPaid);
+    localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
+  };
 
   const handleAddCatalog = (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,7 +312,7 @@ export default function DiagnosticsView() {
                       <TableHead>Category</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Report</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -334,16 +346,27 @@ export default function DiagnosticsView() {
                             {lab.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          {lab.status === "Completed" ? (
-                            <Button variant="ghost" size="sm" onClick={() => alert("Simulating PDF download for: " + lab.test_name)}>
-                              <Download className="h-4 w-4 mr-2" />
-                              PDF
+                        <TableCell className="text-right whitespace-nowrap">
+                          {paidLabs[lab.id] ? (
+                            <Button variant="ghost" size="sm" className="mr-2 text-green-600" onClick={() => window.open(`/diagnostics/receipt/${lab.id}`, '_blank')}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Receipt
                             </Button>
                           ) : (
+                            <Button variant="outline" size="sm" className="mr-2 border-green-600 text-green-600 hover:bg-green-50" onClick={() => handlePay(lab.id)}>
+                              Pay Now
+                            </Button>
+                          )}
+                          {lab.status === "Processing" && (
                             <Button variant="outline" size="sm" onClick={() => handleComplete(lab.id)}>
                               Mark Completed
                             </Button>
+                          )}
+                          {lab.status === "Completed" && (
+                             <Button variant="ghost" size="sm" onClick={() => alert("Simulating PDF download for: " + lab.test_name)}>
+                               <Download className="h-4 w-4 mr-2" />
+                               Report
+                             </Button>
                           )}
                         </TableCell>
                       </TableRow>
