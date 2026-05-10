@@ -71,7 +71,25 @@ export default function PatientsView() {
 
   useEffect(() => {
     fetchPatients();
-  }, []);
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('patients_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchPatients())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        if (selectedPatient && historyOpen) handleViewHistory(selectedPatient);
+        fetchPatients();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'diagnostics_labs' }, () => {
+        if (selectedPatient && historyOpen) handleViewHistory(selectedPatient);
+        fetchPatients();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedPatient, historyOpen]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

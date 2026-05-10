@@ -80,6 +80,17 @@ export default function DoctorsView() {
 
   useEffect(() => {
     fetchDoctors();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('doctors_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchDoctors())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => fetchDoctors())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleRegister = async (e: React.FormEvent) => {

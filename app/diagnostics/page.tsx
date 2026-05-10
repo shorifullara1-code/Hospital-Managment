@@ -66,6 +66,15 @@ export default function DiagnosticsView() {
 
   useEffect(() => {
     fetchData();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('diagnostics_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'diagnostics_labs' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchData())
+      .subscribe();
+
     const stored = localStorage.getItem('diag_catalog');
     if (stored) {
       setTestCatalog(JSON.parse(stored));
@@ -83,6 +92,10 @@ export default function DiagnosticsView() {
     if (paidStorage) {
       setPaidLabs(JSON.parse(paidStorage));
     }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handlePay = (labId: string) => {

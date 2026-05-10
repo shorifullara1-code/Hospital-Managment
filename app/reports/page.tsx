@@ -80,7 +80,20 @@ export default function ReportsView() {
 
       setLoading(false);
     }
+    
     fetchStats();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('reports_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchStats())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (

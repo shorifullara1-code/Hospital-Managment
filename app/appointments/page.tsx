@@ -89,6 +89,18 @@ export default function AppointmentsView() {
 
   useEffect(() => {
     fetchData();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('appointments_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
