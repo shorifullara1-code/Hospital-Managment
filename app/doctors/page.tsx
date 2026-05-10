@@ -1,12 +1,13 @@
 "use client";
 
-import { doctorsData } from "@/lib/doctors-data";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, UserPlus, Filter } from "lucide-react";
+import { Search, UserPlus, Filter, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,7 +26,76 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
+type Doctor = {
+  id: string;
+  doctor_id: string;
+  full_name: string;
+  speciality: string;
+  qualifications: string;
+  fee: number;
+  status: string;
+};
+
 export default function DoctorsView() {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const [formData, setFormData] = useState({
+    name: "",
+    speciality: "",
+    qualification: "",
+    fee: "50",
+  });
+
+  const fetchDoctors = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("doctors").select("*").order("created_at", { ascending: false });
+    if (!error && data) {
+      setDoctors(data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) return;
+    setRegistering(true);
+
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const doctor_id = `DR-${randomNum}`;
+
+    const { error } = await supabase.from("doctors").insert([{
+      doctor_id,
+      full_name: formData.name,
+      speciality: formData.speciality,
+      qualifications: formData.qualification,
+      fee: parseFloat(formData.fee) || 0,
+      status: "Active"
+    }]);
+
+    if (!error) {
+      setIsOpen(false);
+      setFormData({ name: "", speciality: "", qualification: "", fee: "50" });
+      fetchDoctors();
+    } else {
+      console.error(error);
+      alert("Error registering doctor: " + error.message);
+    }
+    setRegistering(false);
+  };
+
+  const filteredDoctors = doctors.filter(doctor => 
+    doctor.full_name?.toLowerCase().includes(search.toLowerCase()) || 
+    doctor.speciality?.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -36,7 +106,7 @@ export default function DoctorsView() {
           </p>
         </div>
         
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger className={buttonVariants()}>
             <UserPlus className="mr-2 h-4 w-4" />
             Register Doctor
@@ -48,27 +118,32 @@ export default function DoctorsView() {
                 Enter the doctor's details and set their appointment fee.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="Dr. John Doe" />
+            <form onSubmit={handleRegister}>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Dr. John Doe" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="speciality">Speciality</Label>
+                  <Input id="speciality" value={formData.speciality} onChange={e => setFormData({ ...formData, speciality: e.target.value })} placeholder="e.g. Cardiology" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="qualification">Qualifications</Label>
+                  <Input id="qualification" value={formData.qualification} onChange={e => setFormData({ ...formData, qualification: e.target.value })} placeholder="e.g. MBBS, FACC" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fee">Appointment Fee ($)</Label>
+                  <Input id="fee" type="number" required value={formData.fee} onChange={e => setFormData({ ...formData, fee: e.target.value })} placeholder="50" />
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="speciality">Speciality</Label>
-                <Input id="speciality" placeholder="e.g. Cardiology" />
+              <div className="flex justify-end pt-4">
+                <Button type="submit" disabled={registering}>
+                  {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Register Doctor
+                </Button>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="qualification">Qualifications</Label>
-                <Input id="qualification" placeholder="e.g. MBBS, FACC" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="fee">Appointment Fee ($)</Label>
-                <Input id="fee" type="number" placeholder="50" />
-              </div>
-            </div>
-            <div className="flex justify-end pt-4">
-              <Button type="submit">Register Doctor</Button>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -84,6 +159,8 @@ export default function DoctorsView() {
                   type="search"
                   placeholder="Search by name or specialty..."
                   className="pl-8 h-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <Button variant="outline" size="icon" className="h-9 w-9">
@@ -106,12 +183,24 @@ export default function DoctorsView() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {doctorsData.map((doctor) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredDoctors.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No doctors found. Register one to get started.
+                  </TableCell>
+                </TableRow>
+              ) : filteredDoctors.map((doctor) => (
                 <TableRow key={doctor.id}>
-                  <TableCell className="font-medium">{doctor.id}</TableCell>
-                  <TableCell className="font-bold">{doctor.name}</TableCell>
+                  <TableCell className="font-medium">{doctor.doctor_id}</TableCell>
+                  <TableCell className="font-bold">{doctor.full_name}</TableCell>
                   <TableCell>{doctor.speciality}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{doctor.qualification}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{doctor.qualifications}</TableCell>
                   <TableCell>${doctor.fee}</TableCell>
                   <TableCell>
                     <Badge variant={doctor.status === "Active" ? "default" : "secondary"}>
