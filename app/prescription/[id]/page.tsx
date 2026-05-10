@@ -69,7 +69,7 @@ export default function PrescriptionPage(props: PageProps) {
           doctorName: Array.isArray(aptData.doctors) ? aptData.doctors[0]?.full_name : aptData.doctors?.full_name,
           doctorQualification: (Array.isArray(aptData.doctors) ? aptData.doctors[0]?.qualifications : aptData.doctors?.qualifications) || "MBBS",
           doctorSpeciality: (Array.isArray(aptData.doctors) ? aptData.doctors[0]?.speciality : aptData.doctors?.speciality),
-          fee: (Array.isArray(aptData.doctors) ? aptData.doctors[0]?.fee : aptData.doctors?.fee) || 50,
+          fee: aptData.fee_amount !== undefined && aptData.fee_amount !== null ? aptData.fee_amount : ((Array.isArray(aptData.doctors) ? aptData.doctors[0]?.fee : aptData.doctors?.fee) || 50),
         });
       } else {
          console.error("Error fetching appointment from supabase:", aptError);

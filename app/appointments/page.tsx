@@ -49,7 +49,7 @@ type Appointment = {
   doctors?: { full_name: string, speciality: string };
 };
 
-type Doctor = { id: string; doctor_id: string; full_name: string; speciality: string };
+type Doctor = { id: string; doctor_id: string; full_name: string; speciality: string; fee?: number; };
 type Patient = { id: string; patient_id: string; full_name: string; age?: number; gender?: string; phone?: string; };
 
 export default function AppointmentsView() {
@@ -68,13 +68,14 @@ export default function AppointmentsView() {
     doctor_id: "",
     date: "",
     time: "10:00",
+    fee_amount: 50
   });
 
   const fetchData = async () => {
     setLoading(true);
     const [aptRes, docsRes, patsRes] = await Promise.all([
       supabase.from("appointments").select("*, patients(full_name), doctors(full_name, speciality)").order("created_at", { ascending: false }),
-      supabase.from("doctors").select("id, doctor_id, full_name, speciality"),
+      supabase.from("doctors").select("id, doctor_id, full_name, speciality, fee"),
       supabase.from("patients").select("id, patient_id, full_name, age, gender, phone")
     ]);
 
@@ -106,12 +107,13 @@ export default function AppointmentsView() {
       department: doctor?.speciality || "General",
       appointment_date: formData.date,
       appointment_time: formData.time + ":00",
-      status: "Scheduled"
+      status: "Scheduled",
+      fee_amount: formData.fee_amount
     }]);
 
     if (!error) {
       setIsOpen(false);
-      setFormData({ patient_id: "", doctor_id: "", date: "", time: "10:00" });
+      setFormData({ patient_id: "", doctor_id: "", date: "", time: "10:00", fee_amount: 50 });
       fetchData();
     } else {
       console.error(error);
@@ -227,16 +229,19 @@ export default function AppointmentsView() {
                           d.full_name?.toLowerCase().includes(term)
                         );
                         if (found) {
-                          setFormData({...formData, doctor_id: found.id});
+                          setFormData({...formData, doctor_id: found.id, fee_amount: found.fee || 50});
                         }
                       }
                     }} 
                   />
-                  <Select value={formData.doctor_id} onValueChange={v => setFormData({...formData, doctor_id: v || ""})}>
+                  <Select value={formData.doctor_id} onValueChange={v => {
+                    const found = doctors.find(d => d.id === v);
+                    setFormData({...formData, doctor_id: v || "", fee_amount: found?.fee || 50});
+                  }}>
                     <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
                     <SelectContent>
                       {doctors.map(d => (
-                        <SelectItem key={d.id} value={d.id}>{d.full_name} ({d.speciality} - {d.doctor_id})</SelectItem>
+                        <SelectItem key={d.id} value={d.id}>{d.full_name} ({d.speciality} - Fee: ${d.fee || 50})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -250,6 +255,11 @@ export default function AppointmentsView() {
                     <Label>Time *</Label>
                     <Input type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
                   </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Consultation Fee ($)</Label>
+                  <Input type="number" required value={formData.fee_amount} onChange={e => setFormData({...formData, fee_amount: parseFloat(e.target.value) || 0})} />
+                  <p className="text-xs text-muted-foreground">This fee will be collected from the patient.</p>
                 </div>
               </div>
               <div className="flex justify-end pt-4">
@@ -295,6 +305,8 @@ export default function AppointmentsView() {
                 <TableHead>Assigned Doctor</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Date & Time</TableHead>
+                <TableHead>Fee</TableHead>
+                <TableHead>Payment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Manage</TableHead>
               </TableRow>
@@ -302,17 +314,17 @@ export default function AppointmentsView() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : filteredAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No appointments found.
                   </TableCell>
                 </TableRow>
-              ) : filteredAppointments.map((apt) => (
+              ) : filteredAppointments.map((apt: any) => (
                 <TableRow key={apt.id}>
                   <TableCell className="font-medium">{apt.appointment_id}</TableCell>
                   <TableCell>
@@ -320,8 +332,8 @@ export default function AppointmentsView() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
-                        {apt.doctors?.full_name?.split(' ').map(n => n[0]).join('') || 'D'}
+                       <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
+                        {apt.doctors?.full_name?.split(' ').map((n: string) => n[0]).join('') || 'D'}
                       </div>
                       <span>{apt.doctors?.full_name || 'Unknown Doctor'}</span>
                     </div>
@@ -332,6 +344,16 @@ export default function AppointmentsView() {
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                       {apt.appointment_date} {apt.appointment_time}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-semibold text-green-700">${apt.fee_amount || apt.doctors?.fee || 50}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      apt.payment_status === "Paid" ? "secondary" : "outline"
+                    } className={apt.payment_status === "Paid" ? "bg-green-100 text-green-700" : "text-amber-600 bg-amber-50"}>
+                      {apt.payment_status || "Pending"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={
@@ -351,6 +373,17 @@ export default function AppointmentsView() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Reschedule</DropdownMenuItem>
+                        {apt.payment_status !== "Paid" && (
+                           <DropdownMenuItem className="text-green-600 font-medium cursor-pointer" onClick={async () => {
+                             const { error } = await supabase.from("appointments").update({ payment_status: "Paid" }).eq("id", apt.id);
+                             if (!error) {
+                               alert("Payment marked as Paid");
+                               fetchData();
+                             }
+                           }}>
+                             Mark as Paid
+                           </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/prescription/${apt.id}`)}>
                           Generate Prescription
