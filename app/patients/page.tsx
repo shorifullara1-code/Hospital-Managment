@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, UserPlus, Filter, Loader2 } from "lucide-react";
+import { Search, Plus, UserPlus, Filter, Loader2, Calendar as CalendarIcon, History } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -45,6 +45,11 @@ export default function PatientsView() {
   const [isOpen, setIsOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [search, setSearch] = useState("");
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [patientHistory, setPatientHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -94,6 +99,24 @@ export default function PatientsView() {
       alert("Error registering patient: " + error.message);
     }
     setRegistering(false);
+  };
+
+  const handleViewHistory = async (patient: Patient) => {
+    setSelectedPatient(patient);
+    setHistoryOpen(true);
+    setLoadingHistory(true);
+    
+    // Fetch user's appointment history
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*, doctors(full_name, speciality)')
+      .eq('patient_id', patient.id)
+      .order('appointment_date', { ascending: false });
+      
+    if (!error && data) {
+      setPatientHistory(data);
+    }
+    setLoadingHistory(false);
   };
 
   const filteredPatients = patients.filter(patient => 
@@ -162,6 +185,85 @@ export default function PatientsView() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Patient History Dialog */}
+        <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Patient History</DialogTitle>
+              <DialogDescription>
+                Overview of clinical history for {selectedPatient?.full_name} ({selectedPatient?.patient_id}).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 flex-1 overflow-y-auto pr-2 pb-4">
+               {selectedPatient && (
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border rounded-md bg-muted/30">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-medium">Age / Gender</p>
+                      <p className="font-semibold text-sm mt-1">{selectedPatient.age || '-'} Y / {selectedPatient.gender || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-medium">Blood Group</p>
+                      <p className="font-semibold text-sm mt-1">{selectedPatient.blood_group || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-medium">Phone</p>
+                      <p className="font-semibold text-sm mt-1">{selectedPatient.phone || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-medium">Joined On</p>
+                      <p className="font-semibold text-sm mt-1">{new Date(selectedPatient?.last_visit ? selectedPatient.last_visit : Date.now()).toLocaleDateString()}</p>
+                    </div>
+                 </div>
+               )}
+
+               <h3 className="font-semibold mt-4 text-base flex items-center">
+                 <History className="h-4 w-4 mr-2" />
+                 Appointment History
+               </h3>
+               {loadingHistory ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+               ) : patientHistory.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground border rounded-md">No past appointments found.</div>
+               ) : (
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Doctor</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {patientHistory.map((apt) => (
+                          <TableRow key={apt.id}>
+                            <TableCell className="font-medium whitespace-nowrap">
+                              <div className="flex items-center">
+                                <CalendarIcon className="h-3 w-3 mr-2 text-muted-foreground" />
+                                {apt.appointment_date} <span className="text-xs rounded-sm bg-muted px-1.5 py-0.5 ml-2 text-muted-foreground">{apt.appointment_time?.slice(0, 5)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{apt.doctors?.full_name}</TableCell>
+                            <TableCell>{apt.department || apt.doctors?.speciality}</TableCell>
+                            <TableCell>
+                              <Badge variant={apt.status === "Scheduled" ? "default" : apt.status === "Completed" ? "secondary" : "outline"}>
+                                {apt.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+               )}
+            </div>
+            <div className="flex justify-end pt-4 border-t mt-auto shrink-0">
+              <Button variant="outline" onClick={() => setHistoryOpen(false)}>Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -226,7 +328,7 @@ export default function PatientsView() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">View</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleViewHistory(patient)}>History</Button>
                   </TableCell>
                 </TableRow>
               ))}

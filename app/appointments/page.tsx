@@ -25,6 +25,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -51,6 +52,7 @@ type Doctor = { id: string; doctor_id: string; full_name: string; speciality: st
 type Patient = { id: string; patient_id: string; full_name: string; age?: number; gender?: string; phone?: string; };
 
 export default function AppointmentsView() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -306,9 +308,9 @@ export default function AppointmentsView() {
                         <DropdownMenuItem>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Reschedule</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <Link href={`/prescription/${apt.id}`} className="w-full cursor-pointer">
-                          <DropdownMenuItem className="cursor-pointer">Generate Prescription</DropdownMenuItem>
-                        </Link>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/prescription/${apt.id}`)}>
+                          Generate Prescription
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
