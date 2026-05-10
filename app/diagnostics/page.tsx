@@ -113,8 +113,24 @@ export default function DiagnosticsView() {
              <form onSubmit={handleAdd} className="grid gap-4 py-4">
                <div className="grid gap-2">
                  <Label>Patient *</Label>
+                 <Input 
+                   type="search" 
+                   placeholder="Search Patient by ID or Name..." 
+                   onChange={(e) => {
+                     const term = e.target.value.toLowerCase();
+                     if (term.length > 0) {
+                       const found = patients.find(p => 
+                         p.patient_id?.toLowerCase().includes(term) || 
+                         p.full_name?.toLowerCase().includes(term)
+                       );
+                       if (found) {
+                         setFormData({...formData, patient_id: found.id});
+                       }
+                     }
+                   }} 
+                 />
                  <Select value={formData.patient_id} onValueChange={v => setFormData({...formData, patient_id: v || ""})}>
-                    <SelectTrigger><SelectValue placeholder="Select Patient" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
                     <SelectContent>
                       {patients.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.patient_id})</SelectItem>
@@ -124,8 +140,23 @@ export default function DiagnosticsView() {
                </div>
                <div className="grid gap-2">
                  <Label>Referred By Doctor *</Label>
+                 <Input 
+                   type="search" 
+                   placeholder="Search Doctor by Name..." 
+                   onChange={(e) => {
+                     const term = e.target.value.toLowerCase();
+                     if (term.length > 0) {
+                       const found = doctors.find(d => 
+                         d.full_name?.toLowerCase().includes(term)
+                       );
+                       if (found) {
+                         setFormData({...formData, doctor_id: found.id});
+                       }
+                     }
+                   }} 
+                 />
                  <Select value={formData.doctor_id} onValueChange={v => setFormData({...formData, doctor_id: v || ""})}>
-                    <SelectTrigger><SelectValue placeholder="Select Doctor" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
                     <SelectContent>
                       {doctors.map(d => (
                         <SelectItem key={d.id} value={d.id}>{d.full_name} ({d.speciality})</SelectItem>

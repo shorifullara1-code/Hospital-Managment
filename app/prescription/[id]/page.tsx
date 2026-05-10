@@ -24,11 +24,12 @@ export default function PrescriptionPage(props: PageProps) {
   });
   
   useEffect(() => {
-    // Load hospital info
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('hospital_settings');
       if (stored) {
-        setHospitalInfo({ ...hospitalInfo, ...JSON.parse(stored) });
+        try {
+          setHospitalInfo(prev => ({ ...prev, ...JSON.parse(stored) }));
+        } catch (e) {}
       }
     }
 

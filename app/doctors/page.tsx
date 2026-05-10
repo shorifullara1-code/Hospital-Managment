@@ -44,6 +44,7 @@ export default function DoctorsView() {
   const [search, setSearch] = useState("");
 
   const [formData, setFormData] = useState({
+    doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}`,
     name: "",
     speciality: "",
     qualification: "",
@@ -68,11 +69,8 @@ export default function DoctorsView() {
     if (!formData.name) return;
     setRegistering(true);
 
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const doctor_id = `DR-${randomNum}`;
-
     const { error } = await supabase.from("doctors").insert([{
-      doctor_id,
+      doctor_id: formData.doctor_id || `DR-${Math.floor(1000 + Math.random() * 9000)}`,
       full_name: formData.name,
       speciality: formData.speciality,
       qualifications: formData.qualification,
@@ -82,7 +80,13 @@ export default function DoctorsView() {
 
     if (!error) {
       setIsOpen(false);
-      setFormData({ name: "", speciality: "", qualification: "", fee: "50" });
+      setFormData({ 
+         doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}`,
+         name: "", 
+         speciality: "", 
+         qualification: "", 
+         fee: "50" 
+      });
       fetchDoctors();
     } else {
       console.error(error);
@@ -120,6 +124,10 @@ export default function DoctorsView() {
             </DialogHeader>
             <form onSubmit={handleRegister}>
               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="doctor_id">Doctor ID</Label>
+                  <Input id="doctor_id" required value={formData.doctor_id} onChange={e => setFormData({ ...formData, doctor_id: e.target.value })} placeholder="DR-1234" />
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name *</Label>
                   <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Dr. John Doe" />
