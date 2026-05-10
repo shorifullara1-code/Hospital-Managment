@@ -143,6 +143,7 @@ export default function PrescriptionPage(props: PageProps) {
           <div className="flex gap-8">
             <p className="text-sm"><span className="font-semibold text-gray-500">Reg No:</span> {appointment.patientReg}</p>
             <p className="text-sm"><span className="font-semibold text-gray-500">Date:</span> {appointment.date}</p>
+            <p className="text-sm"><span className="font-semibold text-gray-500">Consultation Fee:</span> ${appointment.fee}</p>
           </div>
         </div>
 
