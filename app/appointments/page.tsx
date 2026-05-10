@@ -121,7 +121,8 @@ export default function AppointmentsView() {
       appointment_date: formData.date,
       appointment_time: formData.time + ":00",
       status: "Scheduled",
-      fee_amount: Math.max(0, formData.fee_amount - formData.discount)
+      fee_amount: Math.max(0, formData.fee_amount - formData.discount),
+      payment_status: "Paid"
     }]);
 
     if (!error) {

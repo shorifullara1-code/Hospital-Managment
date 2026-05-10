@@ -49,7 +49,7 @@ CREATE TABLE public.appointments (
     status VARCHAR(20) DEFAULT 'Scheduled',
     fee_amount DECIMAL(10, 2),
     discount_amount DECIMAL(10, 2) DEFAULT 0.00,
-    payment_status VARCHAR(20) DEFAULT 'Pending'
+    payment_status VARCHAR(20) DEFAULT 'Paid'
 );
 
 CREATE TABLE public.diagnostics_labs (
@@ -127,4 +127,16 @@ CREATE POLICY "Allow anonymous read access" on public.hospital_settings FOR SELE
 CREATE POLICY "Allow anonymous insert access" on public.hospital_settings FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow anonymous update access" on public.hospital_settings FOR UPDATE USING (true);
 CREATE POLICY "Allow anonymous delete access" on public.hospital_settings FOR DELETE USING (true);
+
+-- Enable Realtime for tables
+begin;
+  drop publication if exists supabase_realtime;
+  create publication supabase_realtime;
+commit;
+alter publication supabase_realtime add table public.patients;
+alter publication supabase_realtime add table public.doctors;
+alter publication supabase_realtime add table public.appointments;
+alter publication supabase_realtime add table public.diagnostics_labs;
+alter publication supabase_realtime add table public.hospital_settings;
+alter publication supabase_realtime add table public.prescriptions;
 
