@@ -29,56 +29,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Check local storage for existing session
-    const storedUser = localStorage.getItem('hospital_staff_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem('hospital_staff_user');
+    const checkAuth = async () => {
+      setIsLoading(true);
+      const storedUser = localStorage.getItem('hospital_staff_user');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          setUser(parsed);
+        } catch (e) {
+          localStorage.removeItem('hospital_staff_user');
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    checkAuth();
   }, []);
 
   useEffect(() => {
-    // Basic redirect if not logged in
-    if (!isLoading && !user && pathname !== '/login') {
-      router.push('/login');
-    }
-    
-    // Check permission for current route
-    if (!isLoading && user && pathname !== '/login' && pathname !== '/') {
-      const section = pathname.split('/')[1];
-      if (section && !hasPermission(section)) {
+    if (!isLoading) {
+      if (!user && pathname !== '/login') {
+        router.push('/login');
+      } else if (user && pathname === '/login') {
         router.push('/');
+      } else if (user && pathname !== '/' && pathname !== '/login') {
+        const section = pathname.split('/')[1];
+        if (section && !hasPermission(section)) {
+          router.push('/');
+        }
       }
     }
   }, [user, isLoading, pathname, router]);
 
   const login = async (username: string, password: string) => {
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('username', username)
-      .eq('password', password)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('username', username)
+        .eq('password', password)
+        .maybeSingle(); // maybeSingle handles 0 rows without error object
 
-    if (error || !data) {
+      if (error || !data) {
+        console.error("Login failed:", error || "User not found");
+        return false;
+      }
+
+      let perms = [];
+      try {
+        perms = typeof data.permissions === 'string' ? JSON.parse(data.permissions) : (data.permissions || []);
+      } catch (e) {
+        console.error("Error parsing permissions:", e);
+      }
+
+      const staffUser: StaffUser = {
+        id: data.id,
+        username: data.username,
+        full_name: data.full_name,
+        role: data.role,
+        permissions: Array.isArray(perms) ? perms : []
+      };
+
+      setUser(staffUser);
+      localStorage.setItem('hospital_staff_user', JSON.stringify(staffUser));
+      router.push('/');
+      return true;
+    } catch (err) {
+      console.error("Login exception:", err);
       return false;
     }
-
-    const staffUser: StaffUser = {
-      id: data.id,
-      username: data.username,
-      full_name: data.full_name,
-      role: data.role,
-      permissions: Array.isArray(data.permissions) ? data.permissions : JSON.parse(data.permissions || '[]')
-    };
-
-    setUser(staffUser);
-    localStorage.setItem('hospital_staff_user', JSON.stringify(staffUser));
-    return true;
   };
 
   const logout = () => {

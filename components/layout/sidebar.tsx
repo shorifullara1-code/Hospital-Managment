@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import {
   LayoutDashboard,
   Users,
@@ -30,12 +32,32 @@ const sidebarLinks = [
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { hasPermission } = useAuth();
+  const [hospitalName, setHospitalName] = useState("MedCore");
+
+  useEffect(() => {
+    async function fetchName() {
+      const { data } = await supabase.from('hospital_settings').select('name').eq('id', 1).single();
+      if (data?.name) setHospitalName(data.name);
+    }
+    fetchName();
+
+    const channel = supabase
+      .channel('sidebar_settings')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'hospital_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new.name) setHospitalName(payload.new.name);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <aside className={cn("w-64 border-r bg-muted/30", className)}>
       <div className="flex h-16 items-center px-6 border-b">
         <Activity className="h-6 w-6 text-primary mr-2" />
-        <span className="font-bold text-lg">MedCore</span>
+        <span className="font-bold text-lg truncate" title={hospitalName}>{hospitalName}</span>
       </div>
       <div className="py-4">
         <nav className="space-y-1 px-2">

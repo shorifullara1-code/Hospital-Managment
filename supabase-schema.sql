@@ -67,13 +67,17 @@ CREATE TABLE public.diagnostics_labs (
 );
 
 CREATE TABLE public.hospital_settings (
-    id INTEGER PRIMARY KEY DEFAULT 1,
+    id INTEGER PRIMARY KEY, -- Removed DEFAULT 1 as we want to control this
     name TEXT,
     phone TEXT,
     email TEXT,
     address TEXT,
     logo TEXT
 );
+
+-- Initialize with default settings
+INSERT INTO public.hospital_settings (id, name, phone, email, address)
+VALUES (1, 'MedCore Hospital', '+1 234 567 8900', 'contact@medcore.com', '123 Health Avenue, Medical District, Cityville, State 12345');
 
 CREATE TABLE public.prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

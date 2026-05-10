@@ -18,51 +18,58 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username || !password) {
+      setError('Please enter both username and password.');
+      return;
+    }
+    
     setError('');
     setLoading(true);
 
     try {
-      const success = await login(username, password);
+      const success = await login(username.trim(), password);
+      console.log("Login success:", success);
       if (!success) {
-        setError('Invalid username or password. Please try again.');
+        setError('Invalid username or password. Please run the SQL code in Supabase to ensure the "staff" table is created and contains the admin user.');
       }
     } catch (err) {
-      setError('An error occurred during login.');
+      console.error("Login component error:", err);
+      setError('A connection error occurred. Please check your Supabase connection.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4 font-sans">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-primary p-3 shadow-inner">
-              <Activity className="h-8 w-8 text-primary-foreground" />
+          <div className="flex justify-center mb-4 text-primary">
+            <div className="rounded-full bg-primary/10 p-3 shadow-inner">
+              <Activity className="h-8 w-8" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">MedCore Login</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">MedCore Hospital Management</CardTitle>
           <CardDescription>
-            Enter your credentials to access the Hospital Management System
+            Enter your credentials to access the secure system
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Login Failed</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Username / ID</Label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="username"
-                  placeholder="Enter your username"
+                  placeholder="admin"
                   className="pl-10"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -85,14 +92,18 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Sign In'}
+            <Button type="submit" className="w-full h-11" disabled={loading}>
+              {loading ? 'Authenticating...' : 'Sign In To Dashboard'}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <p className="text-xs text-center text-muted-foreground">
-            Secure System. Unauthorized access is strictly prohibited.
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-xs text-center text-muted-foreground bg-muted/50 p-2 rounded w-full border">
+            <p className="font-semibold mb-1">Demo Credentials:</p>
+            <p>User: <span className="font-mono bg-background px-1">admin</span> | Pass: <span className="font-mono bg-background px-1">admin123</span></p>
+          </div>
+          <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest">
+            MedCore Security Service
           </p>
         </CardFooter>
       </Card>
