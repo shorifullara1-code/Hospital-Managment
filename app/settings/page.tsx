@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,36 @@ import { Copy, Save, Building, Paintbrush, ShieldCheck, Database } from "lucide-
 export default function SettingsView() {
   const [loading, setLoading] = useState(false);
 
+  const [hospitalName, setHospitalName] = useState("MedCore Hospital");
+  const [hospitalPhone, setHospitalPhone] = useState("+1 234 567 8900");
+  const [hospitalEmail, setHospitalEmail] = useState("contact@medcore.com");
+  const [hospitalAddress, setHospitalAddress] = useState("123 Health Avenue, Medical District, Cityville, State 12345");
+
+  useEffect(() => {
+    // Load from local storage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('hospital_settings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.name) setHospitalName(parsed.name);
+        if (parsed.phone) setHospitalPhone(parsed.phone);
+        if (parsed.email) setHospitalEmail(parsed.email);
+        if (parsed.address) setHospitalAddress(parsed.address);
+      }
+    }
+  }, []);
+
   const handleSave = () => {
     setLoading(true);
     setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hospital_settings', JSON.stringify({
+          name: hospitalName,
+          phone: hospitalPhone,
+          email: hospitalEmail,
+          address: hospitalAddress
+        }));
+      }
       setLoading(false);
       alert("Settings saved successfully.");
     }, 1000);
@@ -47,19 +74,19 @@ export default function SettingsView() {
             <CardContent className="space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="hospital-name">Hospital Name</Label>
-                <Input id="hospital-name" defaultValue="MedCore Hospital" />
+                <Input id="hospital-name" value={hospitalName} onChange={e => setHospitalName(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="email">Contact Email</Label>
-                <Input id="email" defaultValue="contact@medcore.com" />
+                <Input id="email" value={hospitalEmail} onChange={e => setHospitalEmail(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" defaultValue="+1 234 567 8900" />
+                <Input id="phone" value={hospitalPhone} onChange={e => setHospitalPhone(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="address">Address</Label>
-                <Input id="address" defaultValue="123 Health Avenue, Medical District, Cityville, State 12345" />
+                <Input id="address" value={hospitalAddress} onChange={e => setHospitalAddress(e.target.value)} />
               </div>
             </CardContent>
             <CardFooter>

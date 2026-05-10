@@ -16,8 +16,22 @@ export default function PrescriptionPage(props: PageProps) {
   const params = use(props.params);
   const [appointment, setAppointment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hospitalInfo, setHospitalInfo] = useState({
+    name: "MedCore Hospital",
+    phone: "+1 234 567 8900",
+    email: "contact@medcore.com",
+    address: "123 Health Avenue, Medical District, Cityville, State 12345"
+  });
   
   useEffect(() => {
+    // Load hospital info
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('hospital_settings');
+      if (stored) {
+        setHospitalInfo({ ...hospitalInfo, ...JSON.parse(stored) });
+      }
+    }
+
     async function fetchAppointment() {
       // First get the appointment
       const { data: aptData, error: aptError } = await supabase
@@ -89,10 +103,10 @@ export default function PrescriptionPage(props: PageProps) {
         {/* Header Region */}
         <div className="flex justify-between items-start border-b-2 border-primary pb-6 shrink-0">
           <div>
-            <h1 className="text-3xl font-bold text-primary">MedCore Hospital</h1>
-            <p className="text-sm mt-1 text-gray-600">123 Health Avenue, Medical District</p>
-            <p className="text-sm text-gray-600">Cityville, State 12345</p>
-            <p className="text-sm text-gray-600">Phone: +1 234 567 8900</p>
+            <h1 className="text-3xl font-bold text-primary">{hospitalInfo.name}</h1>
+            <p className="text-sm mt-1 text-gray-600 whitespace-pre-wrap">{hospitalInfo.address}</p>
+            <p className="text-sm text-gray-600">Phone: {hospitalInfo.phone}</p>
+            <p className="text-sm text-gray-600">{hospitalInfo.email}</p>
           </div>
           <div className="text-right">
             <h2 className="text-xl font-bold text-gray-900">{appointment.doctorName}</h2>

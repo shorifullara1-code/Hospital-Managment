@@ -188,11 +188,27 @@ export default function AppointmentsView() {
                 </div>
                 <div className="grid gap-2">
                   <Label>Doctor *</Label>
+                  <Input 
+                    type="search" 
+                    placeholder="Search Doctor by ID or Name..." 
+                    onChange={(e) => {
+                      const term = e.target.value.toLowerCase();
+                      if (term.length > 0) {
+                        const found = doctors.find(d => 
+                          d.doctor_id?.toLowerCase().includes(term) || 
+                          d.full_name?.toLowerCase().includes(term)
+                        );
+                        if (found) {
+                          setFormData({...formData, doctor_id: found.id});
+                        }
+                      }
+                    }} 
+                  />
                   <Select value={formData.doctor_id} onValueChange={v => setFormData({...formData, doctor_id: v || ""})}>
-                    <SelectTrigger><SelectValue placeholder="Select Doctor" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
                     <SelectContent>
                       {doctors.map(d => (
-                        <SelectItem key={d.id} value={d.id}>{d.full_name} ({d.speciality})</SelectItem>
+                        <SelectItem key={d.id} value={d.id}>{d.full_name} ({d.speciality} - {d.doctor_id})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
