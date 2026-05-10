@@ -3,8 +3,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, Users, DollarSign, CalendarCheck } from "lucide-react";
+import { Activity, Users, DollarSign, CalendarCheck, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 export default function ReportsView() {
   const [stats, setStats] = useState({
@@ -14,6 +23,7 @@ export default function ReportsView() {
     activeDoctors: 0,
   });
 
+  const [dailyDoctorStats, setDailyDoctorStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,19 +31,46 @@ export default function ReportsView() {
       // Fetch totals
       const [ptsRes, aptsRes, docsRes] = await Promise.all([
         supabase.from('patients').select('*', { count: 'exact', head: true }),
-        supabase.from('appointments').select('*, doctors(fee)'),
+        supabase.from('appointments').select('*, doctors(full_name, fee)'),
         supabase.from('doctors').select('*', { count: 'exact', head: true })
       ]);
 
       let income = 0;
+      const breakdown: Record<string, any> = {};
+
       if (aptsRes.data) {
         aptsRes.data.forEach((apt: any) => {
-           if (apt.status === "Completed") {
-             income += apt.doctors?.fee || 50;
+           // Income calculation
+           const fee = apt.fee_amount || apt.doctors?.fee || 50;
+           income += fee; // Including all scheduled/completed for simplified report
+
+           // Daily breakdown calculation
+           const date = apt.appointment_date;
+           const doctorId = apt.doctor_id;
+           const doctorName = apt.doctors?.full_name || "Unknown Doctor";
+           const key = `${date}_${doctorId}`;
+
+           if (!breakdown[key]) {
+             breakdown[key] = {
+               date,
+               doctorName,
+               count: 0,
+               totalFees: 0
+             };
            }
+           breakdown[key].count += 1;
+           breakdown[key].totalFees += fee;
         });
       }
 
+      // Convert breakdown map to sorted array
+      const sortedBreakdown = Object.values(breakdown).sort((a: any, b: any) => {
+        // Sort by date descending, then doctor name
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return a.doctorName.localeCompare(b.doctorName);
+      });
+
+      setDailyDoctorStats(sortedBreakdown);
       setStats({
         totalPatients: ptsRes.count || 0,
         totalAppointments: aptsRes.data?.length || 0,
@@ -106,14 +143,50 @@ export default function ReportsView() {
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>System Activity Trends</CardTitle>
-            <CardDescription>
-               In a production environment, this chart would render daily appointment flow.
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Daily Doctor Financial Breakdown</CardTitle>
+              <CardDescription>
+                Appointments count and fees collected per doctor, per day.
+              </CardDescription>
+            </div>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="pl-2 flex justify-center items-center h-[300px] border border-dashed rounded-lg bg-muted/10 m-4 mt-0">
-            <p className="text-muted-foreground text-sm">Revenue/Appointment Chart Visualization Area</p>
+          <CardContent>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Doctor Name</TableHead>
+                    <TableHead className="text-center">Appointments</TableHead>
+                    <TableHead className="text-right">Total Fees</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4">Loading stats...</TableCell>
+                    </TableRow>
+                  ) : dailyDoctorStats.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4">No data available</TableCell>
+                    </TableRow>
+                  ) : dailyDoctorStats.map((stat, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{stat.date}</TableCell>
+                      <TableCell className="font-medium">{stat.doctorName}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline">{stat.count}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-green-600">
+                        ${stat.totalFees.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
         
