@@ -1,5 +1,12 @@
 -- Supabase SQL Schema for Hospital Management System
 
+-- Drop existing tables to ensure a clean slate if re-running
+DROP TABLE IF EXISTS public.prescriptions CASCADE;
+DROP TABLE IF EXISTS public.diagnostics_labs CASCADE;
+DROP TABLE IF EXISTS public.appointments CASCADE;
+DROP TABLE IF EXISTS public.doctors CASCADE;
+DROP TABLE IF EXISTS public.patients CASCADE;
+
 -- Create Users table (for authentication and basic info, extending Supabase Auth)
 -- It's recommended to handle auth via Supabase Auth and link to a profiles table.
 
