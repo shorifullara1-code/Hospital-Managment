@@ -34,6 +34,7 @@ type Doctor = {
   qualifications: string;
   fee: number;
   status: string;
+  total_appointments?: number;
 };
 
 export default function DoctorsView() {
@@ -53,9 +54,26 @@ export default function DoctorsView() {
 
   const fetchDoctors = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("doctors").select("*").order("created_at", { ascending: false });
-    if (!error && data) {
-      setDoctors(data);
+    const [docsRes, aptsRes] = await Promise.all([
+      supabase.from("doctors").select("*").order("created_at", { ascending: false }),
+      supabase.from("appointments").select("doctor_id")
+    ]);
+
+    if (!docsRes.error && docsRes.data) {
+      // Calculate appointments per doctor
+      const aptCount: Record<string, number> = {};
+      if (aptsRes.data) {
+        aptsRes.data.forEach((apt: any) => {
+          aptCount[apt.doctor_id] = (aptCount[apt.doctor_id] || 0) + 1;
+        });
+      }
+
+      const docsWithCounts = docsRes.data.map((doc: any) => ({
+        ...doc,
+        total_appointments: aptCount[doc.id] || 0
+      }));
+
+      setDoctors(docsWithCounts);
     }
     setLoading(false);
   };
@@ -185,6 +203,7 @@ export default function DoctorsView() {
                 <TableHead>Name</TableHead>
                 <TableHead>Speciality</TableHead>
                 <TableHead>Qualifications</TableHead>
+                <TableHead>Appointments</TableHead>
                 <TableHead>Appt. Fee</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -193,13 +212,13 @@ export default function DoctorsView() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : filteredDoctors.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No doctors found. Register one to get started.
                   </TableCell>
                 </TableRow>
@@ -209,6 +228,11 @@ export default function DoctorsView() {
                   <TableCell className="font-bold">{doctor.full_name}</TableCell>
                   <TableCell>{doctor.speciality}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{doctor.qualifications}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-50">
+                      {doctor.total_appointments || 0}
+                    </Badge>
+                  </TableCell>
                   <TableCell>${doctor.fee}</TableCell>
                   <TableCell>
                     <Badge variant={doctor.status === "Active" ? "default" : "secondary"}>
