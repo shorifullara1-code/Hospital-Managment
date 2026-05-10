@@ -48,7 +48,7 @@ type Appointment = {
 };
 
 type Doctor = { id: string; doctor_id: string; full_name: string; speciality: string };
-type Patient = { id: string; patient_id: string; full_name: string };
+type Patient = { id: string; patient_id: string; full_name: string; age?: number; gender?: string; phone?: string; };
 
 export default function AppointmentsView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -71,7 +71,7 @@ export default function AppointmentsView() {
     const [aptRes, docsRes, patsRes] = await Promise.all([
       supabase.from("appointments").select("*, patients(full_name), doctors(full_name, speciality)").order("created_at", { ascending: false }),
       supabase.from("doctors").select("id, doctor_id, full_name, speciality"),
-      supabase.from("patients").select("id, patient_id, full_name")
+      supabase.from("patients").select("id, patient_id, full_name, age, gender, phone")
     ]);
 
     if (!aptRes.error && aptRes.data) setAppointments(aptRes.data as any);
@@ -148,14 +148,41 @@ export default function AppointmentsView() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label>Patient *</Label>
+                  <Input 
+                    type="search" 
+                    placeholder="Search Patient by ID or Name..." 
+                    onChange={(e) => {
+                      const term = e.target.value.toLowerCase();
+                      if (term.length > 0) {
+                        const found = patients.find(p => 
+                          p.patient_id.toLowerCase().includes(term) || 
+                          p.full_name.toLowerCase().includes(term)
+                        );
+                        if (found) {
+                          setFormData({...formData, patient_id: found.id});
+                        }
+                      }
+                    }} 
+                  />
                   <Select value={formData.patient_id} onValueChange={v => setFormData({...formData, patient_id: v || ""})}>
-                    <SelectTrigger><SelectValue placeholder="Select Patient" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
                     <SelectContent>
                       {patients.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.patient_id})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {formData.patient_id && patients.find(p => p.id === formData.patient_id) && (() => {
+                    const selectedPatient = patients.find(p => p.id === formData.patient_id);
+                    return (
+                      <div className="mt-2 text-sm bg-muted p-3 rounded-md space-y-1">
+                        <p><strong>Name:</strong> {selectedPatient?.full_name}</p>
+                        <p><strong>Patient ID:</strong> {selectedPatient?.patient_id}</p>
+                        <p><strong>Phone:</strong> {selectedPatient?.phone || 'N/A'}</p>
+                        <p><strong>Age/Gender:</strong> {selectedPatient?.age || '-'} / {selectedPatient?.gender || '-'}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="grid gap-2">
                   <Label>Doctor *</Label>
