@@ -57,19 +57,24 @@ export default function SettingsView() {
   useEffect(() => {
     fetchStaff();
     // ... existing initialization ...
-    // Load from Supabase first, fallback to local storage
+    // Load from Supabase only
     const fetchSettings = async () => {
       setLoading(true);
-      const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
-      
-      if (data) {
-        setHospitalName(data.name || "");
-        setHospitalPhone(data.phone || "");
-        setHospitalEmail(data.email || "");
-        setHospitalAddress(data.address || "");
-        setHospitalLogo(data.logo || "");
+      try {
+        const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
+        if (error) throw error;
+        if (data) {
+          setHospitalName(data.name || "");
+          setHospitalPhone(data.phone || "");
+          setHospitalEmail(data.email || "");
+          setHospitalAddress(data.address || "");
+          setHospitalLogo(data.logo || "");
+        }
+      } catch (err: any) {
+        console.error("Supabase fetch failed:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchSettings();
 
@@ -134,22 +139,14 @@ export default function SettingsView() {
     };
 
     try {
-      // Try to save to Supabase Database
+      // Save directly to Supabase Database
       const { error } = await supabase.from('hospital_settings').upsert({ id: 1, ...settingsData });
+      if (error) throw error;
       
-      if (error) {
-        console.error("Error saving to Supabase:", error);
-        alert("Failed to save to database. Settings are only saved locally for now.");
-      } else {
-        alert("Settings saved successfully.");
-      }
-
-      // Always save to local storage as fallback
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('hospital_settings', JSON.stringify(settingsData));
-      }
-    } catch (e) {
-        console.error("Unexpected error saving settings:", e);
+      alert("Settings saved successfully to Database.");
+    } catch (err: any) {
+      console.error("Database error saving settings:", err);
+      alert(`Failed to save to database. Error: ${err.message}`);
     } finally {
       setLoading(false);
     }

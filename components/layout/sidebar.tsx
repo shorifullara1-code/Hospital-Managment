@@ -35,8 +35,14 @@ export function Sidebar({ className }: { className?: string }) {
 
   useEffect(() => {
     async function fetchName() {
-      const { data } = await supabase.from('hospital_settings').select('name').eq('id', 1).single();
-      if (data?.name) setHospitalName(data.name);
+      try {
+        const { data, error } = await supabase.from('hospital_settings').select('name').eq('id', 1).single();
+        if (data?.name && !error) {
+          setHospitalName(data.name);
+        }
+      } catch (err) {
+        console.error("Error fetching hospital name", err);
+      }
     }
     fetchName();
 

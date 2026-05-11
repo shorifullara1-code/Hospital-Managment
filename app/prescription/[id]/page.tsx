@@ -30,9 +30,13 @@ export default function PrescriptionPage(props: PageProps) {
   useEffect(() => {
     setGenerationTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     const fetchHospitalInfo = async () => {
-      const { data } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
-      if (data) {
-        setHospitalInfo(prev => ({ ...prev, ...data }));
+      try {
+        const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
+        if (data && !error) {
+          setHospitalInfo(prev => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error("Error fetching hospital settings", err);
       }
     };
     fetchHospitalInfo();
