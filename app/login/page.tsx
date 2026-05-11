@@ -24,6 +24,13 @@ export default function LoginPage() {
     }
     
     setError('');
+    
+    // Check if Supabase keys are configured in environment
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'your-project-url') {
+      setError('Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in the environment settings.');
+      return;
+    }
+
     setLoading(true);
 
     // Timeout alert after 10 seconds if nothing happens
@@ -39,7 +46,7 @@ export default function LoginPage() {
       clearTimeout(timeout);
       console.log("Login success:", success);
       if (!success) {
-        setError('Invalid username or password. If you haven\'t already, please run the SQL code in your Supabase SQL Editor to create the "staff" table and admin user.');
+        setError('Invalid credentials. Check if you have: 1. Set environment variables. 2. Created the "staff" table. 3. Disabled RLS for the staff table in Supabase.');
       }
     } catch (err) {
       clearTimeout(timeout);
