@@ -10,6 +10,7 @@ import {
   Settings, 
   Activity, 
   ClipboardList,
+  IdCard,
   ArrowRight,
   Plus
 } from 'lucide-react';
@@ -61,12 +62,12 @@ export default function Dashboard() {
       count: stats.appointments
     },
     { 
-      title: 'Prescriptions', 
-      desc: 'View and print prescriptions', 
-      icon: ClipboardList, 
-      color: 'bg-emerald-500', 
-      href: '/reports',
-      count: 'Active'
+      title: 'ID Cards', 
+      desc: 'Generate & print patient ID cards', 
+      icon: IdCard, 
+      color: 'bg-purple-600', 
+      href: '/id-cards',
+      count: 'Generator'
     },
     { 
       title: 'Settings', 

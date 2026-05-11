@@ -9,7 +9,11 @@ import {
   IdCard, 
   Settings, 
   Activity,
-  ClipboardList
+  ClipboardList,
+  CreditCard,
+  UserRound,
+  FlaskConical,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
@@ -19,6 +23,10 @@ const menuItems = [
   { name: 'Patients', icon: Users, href: '/patients' },
   { name: 'ID Cards', icon: IdCard, href: '/id-cards' },
   { name: 'Appointments', icon: ClipboardList, href: '/appointments' },
+  { name: 'Doctors', icon: UserRound, href: '/doctors' },
+  { name: 'Billing', icon: CreditCard, href: '/billing' },
+  { name: 'Diagnostics', icon: FlaskConical, href: '/diagnostics' },
+  { name: 'Reports', icon: BarChart3, href: '/reports' },
   { name: 'Settings', icon: Settings, href: '/settings' },
 ];
 
