@@ -29,6 +29,7 @@ interface Patient {
   birth_date: string;
   phone: string;
   address: string;
+  blood_group?: string;
   created_at: string;
 }
 
@@ -39,6 +40,7 @@ export default function PatientsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showIDCard, setShowIDCard] = useState(false);
+  const [hospitalName, setHospitalName] = useState('MEDCORE');
 
   const [formData, setFormData] = useState({
     family_name: '',
@@ -46,12 +48,22 @@ export default function PatientsPage() {
     gender: 'Male',
     birth_date: '',
     phone: '',
-    address: ''
+    address: '',
+    blood_group: 'A+'
   });
 
   useEffect(() => {
     fetchPatients();
+    fetchHospitalSettings();
   }, []);
+
+  const fetchHospitalSettings = async () => {
+    const { data } = await supabase
+      .from('hospital_settings')
+      .select('name')
+      .single();
+    if (data?.name) setHospitalName(data.name);
+  };
 
   const fetchPatients = async () => {
     setLoading(true);
@@ -83,7 +95,8 @@ export default function PatientsPage() {
         gender: 'Male',
         birth_date: '',
         phone: '',
-        address: ''
+        address: '',
+        blood_group: 'A+'
       });
       // Automatically show ID card for new patient
       setSelectedPatient(data);
@@ -253,6 +266,21 @@ export default function PatientsPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Blood Group</label>
+                    <select 
+                      className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                      value={formData.blood_group}
+                      onChange={e => setFormData({...formData, blood_group: e.target.value})}
+                    >
+                      {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
+                        <option key={bg}>{bg}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Date of Birth</label>
                     <input 
                       type="date"
@@ -262,17 +290,16 @@ export default function PatientsPage() {
                       onChange={e => setFormData({...formData, birth_date: e.target.value})}
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Phone Number</label>
-                  <input 
-                    type="tel"
-                    required
-                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Phone Number</label>
+                    <input 
+                      type="tel"
+                      required
+                      className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      value={formData.phone}
+                      onChange={e => setFormData({...formData, phone: e.target.value})}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -332,7 +359,7 @@ export default function PatientsPage() {
                     <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/30">
                       <CreditCard size={18} />
                     </div>
-                    <span className="font-black tracking-tighter text-lg">MEDCORE</span>
+                    <span className="font-black tracking-tighter text-lg uppercase">{hospitalName}</span>
                   </div>
                   <div className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-widest font-bold backdrop-blur-sm border border-white/20">
                     Hospital ID
@@ -352,7 +379,7 @@ export default function PatientsPage() {
                       </p>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <p className="text-[8px] opacity-60 uppercase font-bold tracking-widest leading-none mb-1">Gender</p>
                         <p className="text-[10px] font-bold">{selectedPatient.gender}</p>
@@ -360,6 +387,10 @@ export default function PatientsPage() {
                       <div>
                         <p className="text-[8px] opacity-60 uppercase font-bold tracking-widest leading-none mb-1">Birth Date</p>
                         <p className="text-[10px] font-bold">{selectedPatient.birth_date}</p>
+                      </div>
+                      <div>
+                        <p className="text-[8px] opacity-60 uppercase font-bold tracking-widest leading-none mb-1">Blood</p>
+                        <p className="text-[10px] font-bold text-amber-300">{selectedPatient.blood_group || 'N/A'}</p>
                       </div>
                     </div>
 
