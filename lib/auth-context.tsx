@@ -14,7 +14,7 @@ interface StaffUser {
 
 interface AuthContextType {
   user: StaffUser | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
   hasPermission: (section: string) => boolean;
@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
+      console.log("Attempting login for:", username);
       const { data, error } = await supabase
         .from('staff')
         .select('*')
@@ -70,12 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error("Supabase Error during login:", error.message);
-        throw new Error(error.message);
+        return { success: false, error: `Database error: ${error.message}` };
       }
 
       if (!data || data.length === 0) {
         console.error("Login failed: User not found");
-        return false;
+        return { success: false, error: "Invalid username or password." };
       }
 
       const userData = data[0];
@@ -102,10 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(staffUser);
       localStorage.setItem('hospital_staff_user', JSON.stringify(staffUser));
       router.push('/');
-      return true;
-    } catch (err) {
+      return { success: true };
+    } catch (err: any) {
       console.error("Login exception:", err);
-      return false;
+      return { success: false, error: err.message || "An unexpected error occurred." };
     }
   };
 

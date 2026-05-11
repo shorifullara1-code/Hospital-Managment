@@ -24,36 +24,51 @@ export default function LoginPage() {
     }
     
     setError('');
-    
-    // Check if Supabase keys are configured in environment
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'your-project-url') {
-      setError('Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in the environment settings.');
-      return;
-    }
-
     setLoading(true);
 
     // Timeout alert after 10 seconds if nothing happens
     const timeout = setTimeout(() => {
       if (loading) {
-        setError('The request is taking longer than expected. Please check your Supabase URL and API Key in the environment settings.');
+        setError('The request is taking longer than expected. Please check your Supabase connection.');
         setLoading(false);
       }
     }, 10000);
 
     try {
-      const success = await login(username.trim(), password);
-      clearTimeout(timeout);
-      console.log("Login success:", success);
-      if (!success) {
-        setError('Invalid credentials. Check if you have: 1. Set environment variables. 2. Created the "staff" table. 3. Disabled RLS for the staff table in Supabase.');
+      console.log("Login attempt started");
+
+      // Verify environment variables
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
+          process.env.NEXT_PUBLIC_SUPABASE_URL === 'your-project-url' ||
+          !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        setError('Supabase connection details are missing. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in settings.');
+        clearTimeout(timeout);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
+
+      const result = await login(username.trim(), password);
       clearTimeout(timeout);
-      console.error("Login component error:", err);
-      setError('A connection error occurred. Make sure your NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are correctly set.');
+      
+      if (!result.success) {
+        setError(result.error || 'Invalid credentials or database error.');
+      }
+    } catch (err: any) {
+      clearTimeout(timeout);
+      setError(`Login Error: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkConnection = async () => {
+    try {
+      const { data, error } = await supabase.from('staff').select('count', { count: 'exact', head: true });
+      if (error) throw error;
+      alert("Connection Successful: Staff table is accessible.");
+    } catch (err: any) {
+      console.error("Connection test failed:", err);
+      alert(`Connection Failed: ${err.message}. Make sure the 'staff' table exists and RLS is configured.`);
     }
   };
 
@@ -113,6 +128,11 @@ export default function LoginPage() {
               {loading ? 'Authenticating...' : 'Sign In To Dashboard'}
             </Button>
           </form>
+          <div className="mt-4 text-center">
+             <Button variant="link" size="sm" onClick={checkConnection} type="button" className="text-xs text-muted-foreground">
+               Troubleshoot Connection
+             </Button>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-xs text-center text-muted-foreground bg-muted/50 p-2 rounded w-full border">
