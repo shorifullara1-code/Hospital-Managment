@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   UserPlus, 
@@ -8,17 +8,14 @@ import {
   Printer, 
   IdCard, 
   Trash2, 
-  MoreVertical,
   X,
   CreditCard,
   MapPin,
   Phone,
-  User,
-  Calendar
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Barcode from 'react-barcode';
-import { cn } from '@/lib/utils';
 
 interface Patient {
   id: string;
@@ -67,7 +64,7 @@ export default function PatientsPage() {
 
   const fetchPatients = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('patients')
       .select('*')
       .order('created_at', { ascending: false });
@@ -80,7 +77,7 @@ export default function PatientsPage() {
     e.preventDefault();
     const patient_id = `P-${Math.floor(100000 + Math.random() * 900000)}`;
     
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('patients')
       .insert([{ ...formData, patient_id }])
       .select()

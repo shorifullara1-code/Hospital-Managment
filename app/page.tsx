@@ -9,15 +9,22 @@ import {
   Calendar, 
   Settings, 
   Activity, 
-  ClipboardList,
   IdCard,
   ArrowRight,
   Plus
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+interface Patient {
+  id: string;
+  patient_id: string;
+  family_name: string;
+  given_name: string;
+  created_at: string;
+}
+
 export default function Dashboard() {
-  const [recentPatients, setRecentPatients] = React.useState<any[]>([]);
+  const [recentPatients, setRecentPatients] = React.useState<Patient[]>([]);
   const [stats, setStats] = React.useState({ patients: '0', appointments: '0' });
 
   React.useEffect(() => {

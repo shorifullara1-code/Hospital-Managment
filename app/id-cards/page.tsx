@@ -6,7 +6,6 @@ import {
   Search, 
   IdCard, 
   Printer, 
-  X, 
   CreditCard, 
   User,
   Filter

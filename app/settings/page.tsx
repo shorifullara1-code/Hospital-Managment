@@ -10,7 +10,6 @@ import {
   Phone, 
   Settings as SettingsIcon,
   Shield,
-  Eye,
   Activity,
   CheckCircle2
 } from 'lucide-react';
@@ -35,7 +34,7 @@ export default function SettingsPage() {
   }, []);
 
   const fetchSettings = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('hospital_settings')
       .select('*')
       .single();
@@ -224,6 +223,6 @@ function Switch({ checked, onChange }: { checked: boolean, onChange: (val: boole
   );
 }
 
-function cn(...inputs: any[]) {
+function cn(...inputs: (string | boolean | undefined | null)[]) {
   return inputs.filter(Boolean).join(' ');
 }

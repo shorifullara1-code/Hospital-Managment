@@ -10,13 +10,10 @@ import {
   Clock, 
   User, 
   MoreVertical,
-  Filter,
   CheckCircle2,
   XCircle,
   AlertCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface Appointment {
@@ -44,7 +41,7 @@ export default function AppointmentsPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('appointments')
       .select('*, patients(given_name, family_name)')
       .order('appointment_date', { ascending: true });

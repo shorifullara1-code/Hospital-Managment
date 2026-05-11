@@ -6,21 +6,37 @@ import { supabase } from '@/lib/supabase';
 import { 
   Printer, 
   ArrowLeft, 
-  Calendar, 
-  User, 
-  FileText,
-  Clock,
   MapPin,
   Phone,
   Mail
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+interface AppointmentData {
+  id: string;
+  appointment_date: string;
+  status: string;
+  fee?: number;
+  patients?: {
+    given_name: string;
+    family_name: string;
+    birth_date: string;
+    gender: string;
+    patient_id: string;
+  };
+  doctors?: {
+    name: string;
+    speciality: string;
+    qualification: string;
+  };
+}
+
 export default function PrescriptionPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id;
   const router = useRouter();
-  const [appointment, setAppointment] = useState<any>(null);
-  const [hospital, setHospital] = useState<any>({
+  const [appointment, setAppointment] = useState<null | AppointmentData>(null);
+  const [hospital, setHospital] = useState<Record<string, string>>({
     name: "MedCore Hospital",
     address: "123 Health Ave, Medical City",
     phone: "+1 234 567 890",
@@ -28,15 +44,12 @@ export default function PrescriptionPage() {
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, [id]);
-
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
+    if (!id) return;
     setLoading(true);
     
     // Fetch appointment and patient info
-    const { data: appt, error: apptError } = await supabase
+    const { data: appt } = await supabase
       .from('appointments')
       .select(`
         *,
@@ -74,7 +87,11 @@ export default function PrescriptionPage() {
     }
 
     setLoading(false);
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   if (loading) return <div className="p-8 text-center">Loading prescription...</div>;
   if (!appointment) return <div className="p-8 text-center text-rose-500">Prescription not found.</div>;

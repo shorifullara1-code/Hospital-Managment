@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { UserRound, Plus, Stethoscope, Mail, Phone, MoreVertical } from 'lucide-react';
+import { UserRound, Plus, Stethoscope, Mail, MoreVertical } from 'lucide-react';
 
 export default function DoctorsPage() {
   const doctors = [
