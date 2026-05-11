@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,13 +27,11 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    // Timeout alert after 10 seconds if nothing happens
+    // Timeout alert after 15 seconds if nothing happens
     const timeout = setTimeout(() => {
-      if (loading) {
-        setError('The request is taking longer than expected. Please check your Supabase connection.');
-        setLoading(false);
-      }
-    }, 10000);
+      setError('The request is taking longer than expected. Please check your network connection and Supabase URL.');
+      setLoading(false);
+    }, 15000);
 
     try {
       console.log("Login attempt started");
