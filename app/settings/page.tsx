@@ -18,6 +18,10 @@ export default function SettingsView() {
   const [hospitalEmail, setHospitalEmail] = useState("contact@medcore.com");
   const [hospitalAddress, setHospitalAddress] = useState("123 Health Avenue, Medical District, Cityville, State 12345");
   const [hospitalLogo, setHospitalLogo] = useState("");
+  const [darkMode, setDarkMode] = useState(false);
+  const [compactView, setCompactView] = useState(false);
+  const [twoFactorAuth, setTwoFactorAuth] = useState(true);
+  const [sessionTimeout, setSessionTimeout] = useState(true);
 
   useEffect(() => {
     // Load from Supabase first, fallback to local storage
@@ -30,6 +34,10 @@ export default function SettingsView() {
         if (data.email) setHospitalEmail(data.email);
         if (data.address) setHospitalAddress(data.address);
         if (data.logo) setHospitalLogo(data.logo);
+        if (data.dark_mode !== undefined) setDarkMode(data.dark_mode);
+        if (data.compact_view !== undefined) setCompactView(data.compact_view);
+        if (data.two_factor_auth !== undefined) setTwoFactorAuth(data.two_factor_auth);
+        if (data.session_timeout !== undefined) setSessionTimeout(data.session_timeout);
         
         // Update local storage cache
         localStorage.setItem('hospital_settings', JSON.stringify(data));
@@ -45,6 +53,10 @@ export default function SettingsView() {
               if (parsed.email !== undefined) setHospitalEmail(parsed.email);
               if (parsed.address !== undefined) setHospitalAddress(parsed.address);
               if (parsed.logo !== undefined) setHospitalLogo(parsed.logo);
+              if (parsed.dark_mode !== undefined) setDarkMode(parsed.dark_mode);
+              if (parsed.compact_view !== undefined) setCompactView(parsed.compact_view);
+              if (parsed.two_factor_auth !== undefined) setTwoFactorAuth(parsed.two_factor_auth);
+              if (parsed.session_timeout !== undefined) setSessionTimeout(parsed.session_timeout);
             } catch (e) {
               console.error("Error parsing settings:", e);
             }
@@ -94,7 +106,11 @@ export default function SettingsView() {
       phone: hospitalPhone,
       email: hospitalEmail,
       address: hospitalAddress,
-      logo: hospitalLogo
+      logo: hospitalLogo,
+      dark_mode: darkMode,
+      compact_view: compactView,
+      two_factor_auth: twoFactorAuth,
+      session_timeout: sessionTimeout
     };
 
     try {
@@ -141,7 +157,7 @@ export default function SettingsView() {
             <CardHeader>
               <CardTitle className="flex items-center"><Building className="h-5 w-5 mr-2" /> Hospital Details</CardTitle>
               <CardDescription>
-                Update your hospital's public information.
+                Update your hospital&apos;s public information.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -196,14 +212,14 @@ export default function SettingsView() {
                   <Label>Dark Mode</Label>
                   <p className="text-sm text-muted-foreground">Switch between light and dark themes.</p>
                 </div>
-                <Switch id="dark-mode" />
+                <Switch id="dark-mode" checked={darkMode} onCheckedChange={setDarkMode} />
               </div>
               <div className="flex items-center justify-between space-x-2">
                 <div className="flex flex-col space-y-1">
                   <Label>Compact View</Label>
                   <p className="text-sm text-muted-foreground">Reduce spacing in tables and lists.</p>
                 </div>
-                <Switch id="compact-view" />
+                <Switch id="compact-view" checked={compactView} onCheckedChange={setCompactView} />
               </div>
             </CardContent>
             <CardFooter>
@@ -225,16 +241,19 @@ export default function SettingsView() {
                   <Label>Two-Factor Authentication</Label>
                   <p className="text-sm text-muted-foreground">Require 2FA for all doctor and admin accounts.</p>
                 </div>
-                <Switch id="2fa" defaultChecked />
+                <Switch id="2fa" checked={twoFactorAuth} onCheckedChange={setTwoFactorAuth} />
               </div>
               <div className="flex items-center justify-between space-x-2">
                 <div className="flex flex-col space-y-1">
                   <Label>Session Timeout</Label>
                   <p className="text-sm text-muted-foreground">Automatically log out inactive users after 30 minutes.</p>
                 </div>
-                <Switch id="session-timeout" defaultChecked />
+                <Switch id="session-timeout" checked={sessionTimeout} onCheckedChange={setSessionTimeout} />
               </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={handleSave} disabled={loading}>Save security settings</Button>
+            </CardFooter>
           </Card>
         </TabsContent>
         <TabsContent value="database">

@@ -165,43 +165,18 @@ export default function PrescriptionPage(props: PageProps) {
         </div>
 
         {/* Doctor Note Section (White area) */}
-        <div className="mt-4 flex gap-6 flex-1 relative min-h-[500px]">
-          <div className="w-1/3 border-r border-gray-200 pr-6 shrink-0 pt-2">
-            <h3 className="font-semibold text-gray-700 border-b border-gray-100 pb-2 mb-6">Patient Vitals</h3>
-            <div className="space-y-6">
-              <div>
-                <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">BP</p>
-                <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">Pulse</p>
-                <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">Weight (kg)</p>
-                <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">Temp (°F)</p>
-                <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-              </div>
-            </div>
-
-            <h3 className="font-semibold text-gray-700 border-b border-gray-100 pb-2 mb-6 mt-12">Complaints / Hx</h3>
-            <div className="space-y-6">
-              <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-              <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-              <div className="border-b border-dashed border-gray-300 mt-4 h-4"></div>
-            </div>
-          </div>
-          
-          <div className="w-2/3 pl-2 pt-2 relative">
+        <div className="mt-4 flex gap-6 flex-1 relative min-h-[600px]">
+          <div className="w-full pl-2 pt-2 relative">
             <div className="absolute top-2 left-2 text-6xl font-serif text-gray-200 pointer-events-none select-none">
               ℞
             </div>
             {/* Blank space for handwritten notes */}
-            <div className="pt-20 space-y-12">
-               {/* Just leaving empty space */}
+            <div className="pt-24 space-y-12">
+               <div className="border-b border-dashed border-gray-100 h-1"></div>
+               <div className="border-b border-dashed border-gray-100 h-1"></div>
+               <div className="border-b border-dashed border-gray-100 h-1"></div>
+               <div className="border-b border-dashed border-gray-100 h-1"></div>
+               <div className="border-b border-dashed border-gray-100 h-1"></div>
             </div>
           </div>
         </div>
@@ -211,27 +186,13 @@ export default function PrescriptionPage(props: PageProps) {
           <div>
              <p className="mb-2">Appointment ID: {appointment.id}</p>
               <p className="flex items-center gap-2">
-                 Consultation Fee: <span className="font-medium text-gray-700">${Math.max(0, appointment.fee - discount)}</span> 
-                 {discount > 0 && <span className="text-xs text-green-600 print:inline-block ml-2">(Discount Applied: ${discount})</span>}
+                 Consultation Fee: <span className="font-medium text-gray-700">${appointment.fee}</span> 
                  <span className="print:inline hidden">(Paid)</span>
-                 <span className="print:hidden inline-flex items-center ml-4 gap-2 border-l pl-4 border-gray-300">
-                   <Label htmlFor="discountInput" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Discount ($)</Label>
-                   <input 
-                      id="discountInput"
-                      type="number" 
-                      value={discount} 
-                      onChange={e => setDiscount(parseFloat(e.target.value) || 0)} 
-                      className="border border-gray-300 rounded px-2 w-20 py-1 text-black outline-none focus:ring-1 focus:ring-primary transition-shadow text-sm font-medium" 
-                      placeholder="0" 
-                      min="0" 
-                      step="1" 
-                   />
-                 </span>
               </p>
           </div>
           <div className="text-center w-48">
             <div className="border-b border-gray-400 h-10 mb-2"></div>
-            <p>Doctor's Signature</p>
+            <p>Doctor&apos;s Signature</p>
           </div>
         </div>
 

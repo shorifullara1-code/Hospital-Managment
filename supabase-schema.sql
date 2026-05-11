@@ -72,7 +72,11 @@ CREATE TABLE public.hospital_settings (
     phone TEXT,
     email TEXT,
     address TEXT,
-    logo TEXT
+    logo TEXT,
+    dark_mode BOOLEAN DEFAULT false,
+    compact_view BOOLEAN DEFAULT false,
+    two_factor_auth BOOLEAN DEFAULT true,
+    session_timeout BOOLEAN DEFAULT true
 );
 
 CREATE TABLE public.prescriptions (
