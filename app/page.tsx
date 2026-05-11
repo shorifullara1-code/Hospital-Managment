@@ -2,6 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 import { 
   Users, 
   Calendar, 
@@ -14,6 +16,33 @@ import {
 import { motion } from 'motion/react';
 
 export default function Dashboard() {
+  const [recentPatients, setRecentPatients] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState({ patients: '0', appointments: '0' });
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    // Fetch counts
+    const { count: patientCount } = await supabase.from('patients').select('*', { count: 'exact', head: true });
+    const { count: apptCount } = await supabase.from('appointments').select('*', { count: 'exact', head: true });
+    
+    setStats({
+      patients: (patientCount || 0).toLocaleString(),
+      appointments: (apptCount || 0).toString() + ' Total'
+    });
+
+    // Fetch recent patients
+    const { data: patients } = await supabase
+      .from('patients')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    if (patients) setRecentPatients(patients);
+  };
+
   const cards = [
     { 
       title: 'Patients', 
@@ -21,7 +50,7 @@ export default function Dashboard() {
       icon: Users, 
       color: 'bg-blue-500', 
       href: '/patients',
-      count: '1,280'
+      count: stats.patients
     },
     { 
       title: 'Appointments', 
@@ -29,7 +58,7 @@ export default function Dashboard() {
       icon: Calendar, 
       color: 'bg-indigo-500', 
       href: '/appointments',
-      count: '42 Today'
+      count: stats.appointments
     },
     { 
       title: 'Prescriptions', 
@@ -37,7 +66,7 @@ export default function Dashboard() {
       icon: ClipboardList, 
       color: 'bg-emerald-500', 
       href: '/reports',
-      count: '15 Pending'
+      count: 'Active'
     },
     { 
       title: 'Settings', 
@@ -45,7 +74,7 @@ export default function Dashboard() {
       icon: Settings, 
       color: 'bg-slate-700', 
       href: '/settings',
-      count: 'Live Sync'
+      count: 'System'
     },
   ];
 
@@ -59,7 +88,7 @@ export default function Dashboard() {
             </div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight">MedCore Pro</h1>
           </div>
-          <p className="text-slate-500">Welcome back, Dr. Sarah Collins</p>
+          <p className="text-slate-500">Welcome back, Administrator</p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
@@ -96,14 +125,38 @@ export default function Dashboard() {
               <Link href="/patients" className="text-xs text-primary ml-auto font-bold uppercase tracking-widest hover:underline">View All</Link>
             </h2>
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-               <div className="p-8 text-center text-slate-400">
-                  <Link href="/patients" className="flex flex-col items-center gap-4 hover:text-primary transition-colors">
-                    <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                      <Plus size={32} />
-                    </div>
-                    <p className="font-semibold">Start with Patient Registration</p>
-                  </Link>
-               </div>
+               {recentPatients.length > 0 ? (
+                 <div className="divide-y divide-slate-100">
+                    {recentPatients.map(patient => (
+                      <div key={patient.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">
+                            {(patient.given_name?.[0] || '')}{(patient.family_name?.[0] || '')}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 uppercase tracking-tight">{patient.given_name} {patient.family_name}</p>
+                            <p className="text-xs text-slate-500 font-mono italic">{patient.patient_id}</p>
+                          </div>
+                        </div>
+                        <Link 
+                          href="/patients" 
+                          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors"
+                        >
+                          Print ID
+                        </Link>
+                      </div>
+                    ))}
+                 </div>
+               ) : (
+                 <div className="p-8 text-center text-slate-400">
+                    <Link href="/patients" className="flex flex-col items-center gap-4 hover:text-primary transition-colors">
+                      <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                        <Plus size={32} />
+                      </div>
+                      <p className="font-semibold">Start with Patient Registration</p>
+                    </Link>
+                 </div>
+               )}
             </div>
           </div>
           
@@ -134,8 +187,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

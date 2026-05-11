@@ -160,7 +160,7 @@ export default function PatientsPage() {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                      {patient.given_name[0]}{patient.family_name[0]}
+                      {(patient.given_name?.[0] || '')}{(patient.family_name?.[0] || '')}
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800">{patient.given_name} {patient.family_name}</p>
@@ -181,14 +181,16 @@ export default function PatientsPage() {
                   <div className="flex justify-end gap-2">
                     <button 
                       onClick={() => { setSelectedPatient(patient); setShowIDCard(true); }}
-                      className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors border border-transparent hover:border-emerald-100"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg transition-all border border-emerald-100 hover:bg-emerald-100 hover:shadow-sm"
                       title="Print ID Card"
                     >
-                      <IdCard size={18} />
+                      <IdCard size={16} />
+                      <span className="text-xs font-bold">Print ID</span>
                     </button>
                     <button 
                       onClick={() => handleDelete(patient.id)}
                       className="p-2 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors border border-transparent hover:border-rose-100"
+                      title="Delete Patient"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -326,21 +328,21 @@ export default function PatientsPage() {
       {/* ID Card Display & Printer Modal */}
       <AnimatePresence>
         {showIDCard && selectedPatient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md no-print"
               onClick={() => setShowIDCard(false)}
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-3xl p-8 relative shadow-2xl max-w-md w-full"
+              className="bg-white rounded-3xl p-8 relative shadow-2xl max-w-md w-full print:p-0 print:shadow-none print:rounded-none overflow-visible"
             >
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex justify-between items-center mb-8 no-print">
                 <h3 className="text-xl font-bold text-slate-800">Patient ID Card</h3>
                 <button onClick={() => setShowIDCard(false)} className="text-slate-400 hover:text-slate-600">
                   <X />
@@ -348,7 +350,7 @@ export default function PatientsPage() {
               </div>
 
               {/* Card Visualization */}
-              <div id="patient-id-card" className="relative w-full aspect-[1.586/1] bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl overflow-hidden shadow-2xl text-white p-6 border-4 border-white/10">
+              <div id="patient-id-card" className="relative w-full aspect-[1.586/1] bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl overflow-hidden shadow-2xl text-white p-6 border-4 border-white/10 print:border-0 print:shadow-none print:rounded-none">
                 {/* Background Patterns */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-3xl -ml-16 -mb-16" />
@@ -421,7 +423,7 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              <div className="mt-8 space-y-3">
+              <div className="mt-8 space-y-3 no-print">
                 <button 
                   onClick={() => window.print()}
                   className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg active:scale-[0.98]"
