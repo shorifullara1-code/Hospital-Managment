@@ -1,205 +1,211 @@
-"use client";
+'use client';
 
-import { use, useEffect, useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Printer, ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
-import Barcode from "react-barcode";
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { 
+  Printer, 
+  ArrowLeft, 
+  Calendar, 
+  User, 
+  FileText,
+  Clock,
+  MapPin,
+  Phone,
+  Mail
+} from 'lucide-react';
+import { motion } from 'motion/react';
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function PrescriptionPage(props: PageProps) {
-  const params = use(props.params);
+export default function PrescriptionPage() {
+  const { id } = useParams();
+  const router = useRouter();
   const [appointment, setAppointment] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [discount, setDiscount] = useState<number>(0);
-  const [hospitalInfo, setHospitalInfo] = useState({
+  const [hospital, setHospital] = useState<any>({
     name: "MedCore Hospital",
-    phone: "+1 234 567 8900",
-    email: "contact@medcore.com",
-    address: "123 Health Avenue, Medical District, Cityville, State 12345",
-    logo: ""
+    address: "123 Health Ave, Medical City",
+    phone: "+1 234 567 890",
+    email: "contact@medcore.com"
   });
-  const [generationTime, setGenerationTime] = useState("");
-  
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    setGenerationTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    const fetchHospitalInfo = async () => {
-      const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
-      if (data) {
-        setHospitalInfo(prev => ({ ...prev, ...data }));
-        // Cache locally
-        if (typeof window !== 'undefined') localStorage.setItem('hospital_settings', JSON.stringify(data));
-      } else {
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('hospital_settings');
-          if (stored) {
-            try {
-              setHospitalInfo(prev => ({ ...prev, ...JSON.parse(stored) }));
-            } catch (e) {}
-          }
-        }
-      }
-    };
-    fetchHospitalInfo();
+    fetchData();
+  }, [id]);
 
-    async function fetchAppointment() {
-      // First get the appointment
-      const { data: aptData, error: aptError } = await supabase
-        .from('appointments')
-        .select('*, patients(*), doctors(*)')
-        .eq('id', params.id)
-        .single();
-        
-      console.log("Appointment Data:", aptData);
-      console.log("Appointment Error:", aptError);
-        
-      if (!aptError && aptData) {
-        setAppointment({
-          id: aptData.appointment_id,
-          // Handle object or array formats of patients/doctors properly
-          patientName: Array.isArray(aptData.patients) ? aptData.patients[0]?.full_name : aptData.patients?.full_name,
-          patientAge: (Array.isArray(aptData.patients) ? aptData.patients[0]?.age : aptData.patients?.age) || "-",
-          patientGender: (Array.isArray(aptData.patients) ? aptData.patients[0]?.gender : aptData.patients?.gender) || "-",
-          patientReg: (Array.isArray(aptData.patients) ? aptData.patients[0]?.patient_id : aptData.patients?.patient_id),
-          date: aptData.appointment_date,
-          doctorName: Array.isArray(aptData.doctors) ? aptData.doctors[0]?.full_name : aptData.doctors?.full_name,
-          doctorQualification: (Array.isArray(aptData.doctors) ? aptData.doctors[0]?.qualifications : aptData.doctors?.qualifications) || "MBBS",
-          doctorSpeciality: (Array.isArray(aptData.doctors) ? aptData.doctors[0]?.speciality : aptData.doctors?.speciality),
-          fee: aptData.fee_amount !== undefined && aptData.fee_amount !== null ? aptData.fee_amount : ((Array.isArray(aptData.doctors) ? aptData.doctors[0]?.fee : aptData.doctors?.fee) || 50),
-        });
-      } else {
-         console.error("Error fetching appointment from supabase:", aptError);
-      }
-      setLoading(false);
+  const fetchData = async () => {
+    setLoading(true);
+    
+    // Fetch appointment and patient info
+    const { data: appt, error: apptError } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        patients (
+          given_name,
+          family_name,
+          birth_date,
+          gender,
+          patient_id
+        ),
+        doctors (
+          name,
+          speciality,
+          qualification
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (appt) setAppointment(appt);
+
+    // Fetch hospital settings
+    const { data: settings } = await supabase
+      .from('hospital_settings')
+      .select('*')
+      .single();
+    
+    if (settings) {
+      setHospital({
+        name: settings.name || "MedCore Hospital",
+        address: settings.address || "123 Health Ave, Medical City",
+        phone: settings.phone || "+1 234 567 890",
+        email: settings.email || "contact@medcore.com"
+      });
     }
-    fetchAppointment();
-  }, [params.id]);
 
-  const handlePrint = () => {
-    window.print();
+    setLoading(false);
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8 text-center">Loading prescription...</div>;
+  if (!appointment) return <div className="p-8 text-center text-rose-500">Prescription not found.</div>;
 
-  if (!appointment) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p>Appointment not found.</p>
-        <Link href="/appointments" className={cn(buttonVariants())}>Return to Appointments</Link>
-      </div>
-    );
-  }
+  const patient = appointment.patients;
+  const doctor = appointment.doctors;
+  const age = patient ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear() : 'N/A';
 
   return (
-    <div className="min-h-screen bg-muted/30 print:bg-white pb-12">
-      <div className="max-w-[21cm] mx-auto pt-6 px-4 mb-4 flex justify-between items-center print:hidden">
-        <Link href="/appointments" className={cn(buttonVariants({ variant: "ghost" }))}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Appointments
-        </Link>
-        <Button onClick={handlePrint}>
-          <Printer className="mr-2 h-4 w-4" />
-          Print Prescription
-        </Button>
+    <div className="min-h-screen bg-slate-50 py-12 px-4">
+      <div className="max-w-4xl mx-auto mb-8 no-print flex justify-between items-center">
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors"
+        >
+          <ArrowLeft size={20} /> Back
+        </button>
+        <button 
+          onClick={() => window.print()}
+          className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg"
+        >
+          <Printer size={20} /> Print Prescription
+        </button>
       </div>
 
-      <div className="p-8 max-w-[21cm] mx-auto bg-white min-h-[29.7cm] border shadow-sm print:border-none print:shadow-none print:m-0 flex flex-col relative text-black">
-        {/* Header Region */}
-        <div className="flex justify-between items-start border-b-2 border-primary pb-6 shrink-0">
-          <div className="flex gap-4 items-start">
-            {hospitalInfo.logo && (
-              <img src={hospitalInfo.logo} alt="Logo" className="w-20 h-20 object-contain" />
-            )}
-            <div>
-              <h1 className="text-3xl font-bold text-primary">{hospitalInfo.name}</h1>
-              <p className="text-sm mt-1 text-gray-600 whitespace-pre-wrap">{hospitalInfo.address}</p>
-              <p className="text-sm text-gray-600">Phone: {hospitalInfo.phone}</p>
-              <p className="text-sm text-gray-600">{hospitalInfo.email}</p>
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="bg-white shadow-2xl rounded-sm mx-auto p-12 border-t-[12px] border-primary min-h-[1050px] relative font-serif"
+        id="prescription-document"
+      >
+        {/* Header */}
+        <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-primary tracking-tighter mb-2">{hospital.name}</h1>
+            <div className="text-slate-500 text-xs space-y-1 font-sans not-italic uppercase tracking-wider font-semibold">
+              <p className="flex items-center gap-2"><MapPin size={12} /> {hospital.address}</p>
+              <p className="flex items-center gap-2"><Phone size={12} /> {hospital.phone}</p>
+              <p className="flex items-center gap-2"><Mail size={12} /> {hospital.email}</p>
             </div>
           </div>
           <div className="text-right">
-            <h2 className="text-xl font-bold text-gray-900">{appointment.doctorName}</h2>
-            <p className="text-sm font-semibold text-gray-700">{appointment.doctorQualification}</p>
-            <p className="text-sm text-gray-600">{appointment.doctorSpeciality}</p>
-          </div>
-        </div>
-        
-        {/* Patient Details Region */}
-        <div className="flex justify-between items-center py-4 border-b border-gray-200 shrink-0">
-          <div className="flex gap-8">
-            <p className="text-sm"><span className="font-semibold text-gray-500">Patient:</span> {appointment.patientName}</p>
-            <p className="text-sm"><span className="font-semibold text-gray-500">Age/Sex:</span> {appointment.patientAge} Y / {appointment.patientGender}</p>
-          </div>
-          <div className="flex gap-8">
-            <p className="text-sm"><span className="font-semibold text-gray-500">Reg No:</span> {appointment.patientReg}</p>
-            <p className="text-sm"><span className="font-semibold text-gray-500">Date:</span> {appointment.date}</p>
-            <p className="text-sm"><span className="font-semibold text-gray-500">Time:</span> {generationTime}</p>
-            <p className="text-sm"><span className="font-semibold text-gray-500">Consultation Fee:</span> ${appointment.fee}</p>
+            <h2 className="text-xl font-black text-slate-800 mb-1">{doctor?.name}</h2>
+            <p className="text-primary font-bold text-sm tracking-tight">{doctor?.speciality}</p>
+            <p className="text-slate-500 text-xs font-sans mt-1">{doctor?.qualification}</p>
           </div>
         </div>
 
-        {/* Barcode Region */}
-        <div className="flex justify-center py-2 shrink-0">
-           {appointment.patientReg && (
-             <Barcode 
-               value={appointment.patientReg} 
-               width={1.5} 
-               height={40} 
-               fontSize={14} 
-               margin={0} 
-               displayValue={true} 
-             />
-           )}
+        {/* Patient Details Stripe */}
+        <div className="bg-slate-50 grid grid-cols-4 gap-4 p-4 rounded-lg mb-10 font-sans">
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Patient Name</p>
+            <p className="font-bold text-slate-800 text-sm">{patient?.given_name} {patient?.family_name}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">ID / Gender / Age</p>
+            <p className="font-bold text-slate-800 text-sm">{patient?.patient_id} / {patient?.gender} / {age} yrs</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Date</p>
+            <p className="font-bold text-slate-800 text-sm">{new Date(appointment.appointment_date).toLocaleDateString('en-US', { dateStyle: 'medium' })}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Status</p>
+            <p className="text-primary font-black text-sm uppercase">{appointment.status}</p>
+          </div>
         </div>
 
-        {/* Doctor Note Section (White area) */}
-        <div className="mt-4 flex gap-6 flex-1 relative min-h-[600px]">
+        {/* Prescription Content */}
+        <div className="flex gap-12 flex-1 relative min-h-[600px]">
+          {/* Right Column - Prescription (Now taking full width because vitals were removed) */}
           <div className="w-full pl-2 pt-2 relative">
-            <div className="absolute top-2 left-2 text-6xl font-serif text-gray-200 pointer-events-none select-none">
+            <div className="absolute top-0 left-0 text-7xl font-serif text-slate-100 italic pointer-events-none select-none">
               ℞
             </div>
-            {/* Blank space for handwritten notes */}
+            
+            {/* Vitals and Complaints sections removed as per user request */}
+            
             <div className="pt-24 space-y-12">
-               <div className="border-b border-dashed border-gray-100 h-1"></div>
-               <div className="border-b border-dashed border-gray-100 h-1"></div>
-               <div className="border-b border-dashed border-gray-100 h-1"></div>
-               <div className="border-b border-dashed border-gray-100 h-1"></div>
-               <div className="border-b border-dashed border-gray-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
+               <div className="border-b border-dashed border-slate-100 h-1"></div>
             </div>
           </div>
         </div>
-        
-        {/* Footer Area */}
-        <div className="mt-8 pt-8 border-t border-gray-200 flex justify-between items-end text-sm text-gray-500 shrink-0">
-          <div>
-             <p className="mb-2">Appointment ID: {appointment.id}</p>
-              <p className="flex items-center gap-2">
-                 Consultation Fee: <span className="font-medium text-gray-700">${appointment.fee}</span> 
-                 <span className="print:inline hidden">(Paid)</span>
-              </p>
-          </div>
-          <div className="text-center w-48">
-            <div className="border-b border-gray-400 h-10 mb-2"></div>
-            <p>Doctor&apos;s Signature</p>
-          </div>
-        </div>
 
-        <div className="mt-auto pt-4 text-center border-t border-gray-100">
-           <p className="text-[10px] text-gray-400 font-mono tracking-widest uppercase">Software Developed By Shoriful Islam</p>
+        {/* Footer */}
+        <div className="absolute bottom-12 left-12 right-12 flex justify-between items-end border-t-2 border-slate-100 pt-8 font-sans">
+          <div>
+             <p className="text-xs text-slate-400 mb-1">Appointment Reference</p>
+             <p className="text-sm font-bold text-slate-800">#{appointment.id.substring(0, 8).toUpperCase()}</p>
+             <p className="text-xs text-slate-500 mt-2 italic font-serif">Consultation Fee: ${appointment.fee} (Paid)</p>
+          </div>
+          <div className="text-center w-56">
+            <div className="border-b-2 border-slate-200 h-10 mb-2"></div>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Doctor&apos;s Signature</p>
+          </div>
         </div>
-      </div>
+      </motion.div>
+
+      <style jsx global>{`
+        @media print {
+          @page {
+            margin: 0;
+            size: auto;
+          }
+          body {
+            background: white !important;
+            padding: 0 !important;
+          }
+          .min-h-screen {
+            min-height: 0 !important;
+          }
+          .py-12 {
+            padding: 0 !important;
+          }
+          #prescription-document {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            border-top: none !important;
+            min-height: 100vh;
+            width: 100vw;
+            padding: 2cm !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

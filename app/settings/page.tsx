@@ -1,287 +1,229 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Save, Building, Paintbrush, ShieldCheck, Database } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { 
+  Save, 
+  Building, 
+  Mail, 
+  MapPin, 
+  Phone, 
+  Settings as SettingsIcon,
+  Shield,
+  Eye,
+  Activity,
+  CheckCircle2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
-export default function SettingsView() {
+export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
-
-  const [hospitalName, setHospitalName] = useState("MedCore Hospital");
-  const [hospitalPhone, setHospitalPhone] = useState("+1 234 567 8900");
-  const [hospitalEmail, setHospitalEmail] = useState("contact@medcore.com");
-  const [hospitalAddress, setHospitalAddress] = useState("123 Health Avenue, Medical District, Cityville, State 12345");
-  const [hospitalLogo, setHospitalLogo] = useState("");
-  const [darkMode, setDarkMode] = useState(false);
-  const [compactView, setCompactView] = useState(false);
-  const [twoFactorAuth, setTwoFactorAuth] = useState(true);
-  const [sessionTimeout, setSessionTimeout] = useState(true);
+  const [success, setSuccess] = useState(false);
+  
+  const [settings, setSettings] = useState({
+    name: "MedCore Hospital",
+    email: "contact@medcore.com",
+    phone: "+1 234 567 890",
+    address: "123 Health Ave, Medical City",
+    dark_mode: false,
+    compact_view: false,
+    two_factor_auth: true
+  });
 
   useEffect(() => {
-    // Load from Supabase first, fallback to local storage
-    const fetchSettings = async () => {
-      const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
-      
-      if (data) {
-        if (data.name) setHospitalName(data.name);
-        if (data.phone) setHospitalPhone(data.phone);
-        if (data.email) setHospitalEmail(data.email);
-        if (data.address) setHospitalAddress(data.address);
-        if (data.logo) setHospitalLogo(data.logo);
-        if (data.dark_mode !== undefined) setDarkMode(data.dark_mode);
-        if (data.compact_view !== undefined) setCompactView(data.compact_view);
-        if (data.two_factor_auth !== undefined) setTwoFactorAuth(data.two_factor_auth);
-        if (data.session_timeout !== undefined) setSessionTimeout(data.session_timeout);
-        
-        // Update local storage cache
-        localStorage.setItem('hospital_settings', JSON.stringify(data));
-      } else {
-        // Fallback to local storage
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('hospital_settings');
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored);
-              if (parsed.name !== undefined) setHospitalName(parsed.name);
-              if (parsed.phone !== undefined) setHospitalPhone(parsed.phone);
-              if (parsed.email !== undefined) setHospitalEmail(parsed.email);
-              if (parsed.address !== undefined) setHospitalAddress(parsed.address);
-              if (parsed.logo !== undefined) setHospitalLogo(parsed.logo);
-              if (parsed.dark_mode !== undefined) setDarkMode(parsed.dark_mode);
-              if (parsed.compact_view !== undefined) setCompactView(parsed.compact_view);
-              if (parsed.two_factor_auth !== undefined) setTwoFactorAuth(parsed.two_factor_auth);
-              if (parsed.session_timeout !== undefined) setSessionTimeout(parsed.session_timeout);
-            } catch (e) {
-              console.error("Error parsing settings:", e);
-            }
-          }
-        }
-      }
-    };
     fetchSettings();
   }, []);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-         const img = new Image();
-         img.onload = () => {
-            const canvas = document.createElement("canvas");
-            const maxDimension = 300;
-            let width = img.width;
-            let height = img.height;
-            if (width > height && width > maxDimension) {
-              height *= maxDimension / width;
-              width = maxDimension;
-            } else if (height > maxDimension) {
-              width *= maxDimension / height;
-              height = maxDimension;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            ctx?.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
-            setHospitalLogo(compressedBase64);
-         };
-         img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
+  const fetchSettings = async () => {
+    const { data, error } = await supabase
+      .from('hospital_settings')
+      .select('*')
+      .single();
+    
+    if (data) {
+      setSettings(prev => ({ ...prev, ...data }));
     }
   };
 
   const handleSave = async () => {
     setLoading(true);
+    const { error } = await supabase
+      .from('hospital_settings')
+      .upsert({ id: 1, ...settings });
     
-    const settingsData = {
-      name: hospitalName,
-      phone: hospitalPhone,
-      email: hospitalEmail,
-      address: hospitalAddress,
-      logo: hospitalLogo,
-      dark_mode: darkMode,
-      compact_view: compactView,
-      two_factor_auth: twoFactorAuth,
-      session_timeout: sessionTimeout
-    };
-
-    try {
-      // Try to save to Supabase Database
-      const { error } = await supabase.from('hospital_settings').upsert({ id: 1, ...settingsData });
-      
-      if (error) {
-        console.error("Error saving to Supabase:", error);
-        alert("Failed to save to database. Settings are only saved locally for now.");
-      } else {
-        alert("Settings saved successfully.");
-      }
-
-      // Always save to local storage as fallback
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('hospital_settings', JSON.stringify(settingsData));
-      }
-    } catch (e) {
-        console.error("Unexpected error saving settings:", e);
-    } finally {
-      setLoading(false);
+    if (!error) {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
     }
+    setLoading(false);
   };
 
-
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage hospital configurations, system preferences, and security.
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-50 p-8 max-w-4xl mx-auto">
+      <header className="mb-12">
+        <div className="flex items-center gap-3 mb-2">
+          <SettingsIcon size={24} className="text-primary" />
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Settings</h1>
+        </div>
+        <p className="text-slate-500">Configure global hospital parameters and preferences</p>
+      </header>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="database">Database</TabsTrigger>
-        </TabsList>
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center"><Building className="h-5 w-5 mr-2" /> Hospital Details</CardTitle>
-              <CardDescription>
-                Update your hospital&apos;s public information.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      <div className="space-y-8">
+        {/* Hospital Profile Section */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <div className="flex items-center gap-2 font-bold text-slate-800">
+              <Building size={20} className="text-primary" />
+              Hospital Profile
+            </div>
+            <AnimatePresence>
+              {success && (
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex items-center gap-1 text-emerald-600 text-sm font-bold"
+                >
+                  <CheckCircle2 size={16} /> Saved Successfully
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Hospital Logo</Label>
-                <div className="flex items-center gap-4">
-                  {hospitalLogo ? (
-                    <img src={hospitalLogo} alt="Hospital Logo" className="h-16 w-16 object-contain border rounded p-1" />
-                  ) : (
-                    <div className="h-16 w-16 bg-muted flex items-center justify-center border rounded">
-                      <span className="text-xs text-muted-foreground">No Logo</span>
-                    </div>
-                  )}
-                  <Input type="file" accept="image/*" onChange={handleLogoUpload} className="w-full max-w-sm" />
+                <label className="text-sm font-bold text-slate-600">Hospital Name</label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    value={settings.name}
+                    onChange={e => setSettings({...settings, name: e.target.value})}
+                  />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="hospital-name">Hospital Name</Label>
-                <Input id="hospital-name" value={hospitalName} onChange={e => setHospitalName(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="email">Contact Email</Label>
-                <Input id="email" value={hospitalEmail} onChange={e => setHospitalEmail(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" value={hospitalPhone} onChange={e => setHospitalPhone(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" value={hospitalAddress} onChange={e => setHospitalAddress(e.target.value)} />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSave} disabled={loading}>
-                {loading ? "Saving..." : "Save Changes"}
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        <TabsContent value="appearance">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center"><Paintbrush className="h-5 w-5 mr-2" /> System Appearance</CardTitle>
-              <CardDescription>
-                Customize the look and feel of the application.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between space-x-2">
-                <div className="flex flex-col space-y-1">
-                  <Label>Dark Mode</Label>
-                  <p className="text-sm text-muted-foreground">Switch between light and dark themes.</p>
-                </div>
-                <Switch id="dark-mode" checked={darkMode} onCheckedChange={setDarkMode} />
-              </div>
-              <div className="flex items-center justify-between space-x-2">
-                <div className="flex flex-col space-y-1">
-                  <Label>Compact View</Label>
-                  <p className="text-sm text-muted-foreground">Reduce spacing in tables and lists.</p>
-                </div>
-                <Switch id="compact-view" checked={compactView} onCheckedChange={setCompactView} />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSave} disabled={loading}>Save preferences</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        <TabsContent value="security">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center"><ShieldCheck className="h-5 w-5 mr-2" /> Security Settings</CardTitle>
-              <CardDescription>
-                Manage two-factor authentication and data privacy.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between space-x-2">
-                <div className="flex flex-col space-y-1">
-                  <Label>Two-Factor Authentication</Label>
-                  <p className="text-sm text-muted-foreground">Require 2FA for all doctor and admin accounts.</p>
-                </div>
-                <Switch id="2fa" checked={twoFactorAuth} onCheckedChange={setTwoFactorAuth} />
-              </div>
-              <div className="flex items-center justify-between space-x-2">
-                <div className="flex flex-col space-y-1">
-                  <Label>Session Timeout</Label>
-                  <p className="text-sm text-muted-foreground">Automatically log out inactive users after 30 minutes.</p>
-                </div>
-                <Switch id="session-timeout" checked={sessionTimeout} onCheckedChange={setSessionTimeout} />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSave} disabled={loading}>Save security settings</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        <TabsContent value="database">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center"><Database className="h-5 w-5 mr-2" /> Supabase Connection</CardTitle>
-              <CardDescription>
-                View connection details. Do not share your anon key.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <Label>Project URL</Label>
-                <div className="flex items-center gap-2">
-                   <Input readOnly type="text" value={process.env.NEXT_PUBLIC_SUPABASE_URL || "Key hidden"} />
-                   <Button variant="outline" size="icon"><Copy className="h-4 w-4" /></Button>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">Official Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    value={settings.email}
+                    onChange={e => setSettings({...settings, email: e.target.value})}
+                  />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label>Anon Key</Label>
-                <div className="flex items-center gap-2">
-                   <Input readOnly type="password" value={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "********" : ""} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">Phone Support</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    value={settings.phone}
+                    onChange={e => setSettings({...settings, phone: e.target.value})}
+                  />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">Physical Address</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    value={settings.address}
+                    onChange={e => setSettings({...settings, address: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Preferences Section */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 bg-slate-50 border-b border-slate-200 flex items-center gap-2 font-bold text-slate-800">
+            <Activity size={20} className="text-primary" />
+            System Preferences
+          </div>
+          <div className="p-8 space-y-2">
+            <div className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors">
+              <div>
+                <p className="font-bold text-slate-800">Dark Interface</p>
+                <p className="text-xs text-slate-500">Reduce eye strain in low-light environments</p>
+              </div>
+              <Switch 
+                checked={settings.dark_mode} 
+                onChange={(checked) => setSettings({...settings, dark_mode: checked})} 
+              />
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors">
+              <div>
+                <p className="font-bold text-slate-800">Compact Table View</p>
+                <p className="text-xs text-slate-500">Show more data rows on patient screens</p>
+              </div>
+              <Switch 
+                checked={settings.compact_view} 
+                onChange={(checked) => setSettings({...settings, compact_view: checked})} 
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Security Section */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden border-l-4 border-l-amber-500">
+          <div className="p-6 bg-slate-50 border-b border-slate-200 flex items-center gap-2 font-bold text-slate-800">
+            <Shield size={20} className="text-amber-600" />
+            Security & Access
+          </div>
+          <div className="p-8">
+            <div className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors">
+              <div>
+                <p className="font-bold text-slate-800">Two-Factor Authentication</p>
+                <p className="text-xs text-slate-500">Secure staff accounts with mobile verification</p>
+              </div>
+              <Switch 
+                checked={settings.two_factor_auth} 
+                onChange={(checked) => setSettings({...settings, two_factor_auth: checked})} 
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="flex justify-end pt-4">
+          <button 
+            onClick={handleSave}
+            disabled={loading}
+            className="bg-primary text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? "Saving..." : <><Save size={20} /> Save Changes</>}
+          </button>
+        </div>
+      </div>
     </div>
   );
+}
+
+function Switch({ checked, onChange }: { checked: boolean, onChange: (val: boolean) => void }) {
+  return (
+    <button 
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "w-12 h-6 rounded-full relative transition-colors duration-200 ease-in-out",
+        checked ? "bg-primary" : "bg-slate-200"
+      )}
+    >
+      <div className={cn(
+        "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-200 ease-in-out",
+        checked ? "left-7" : "left-1"
+      )} />
+    </button>
+  );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }
