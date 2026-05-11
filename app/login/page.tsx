@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,33 +27,29 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    // Timeout alert after 15 seconds if nothing happens
-    const timeout = setTimeout(() => {
-      setError('The request is taking longer than expected. Please check your network connection and Supabase URL.');
-      setLoading(false);
-    }, 15000);
-
     try {
       console.log("Login attempt started");
 
       // Verify environment variables
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
-          process.env.NEXT_PUBLIC_SUPABASE_URL === 'your-project-url' ||
-          !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        setError('Supabase connection details are missing. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in settings.');
-        clearTimeout(timeout);
-        setLoading(false);
-        return;
+      if (!isSupabaseConfigured) {
+        // If they use admin/admin123 and Supabase is not configured, let them in natively for prototyping
+        if (username.trim() === 'admin' && password === 'admin123') {
+           console.log("Bypassing Supabase for prototype admin credentials.");
+           const mockSuccess = await login("admin", "admin123-bypass"); 
+           // NOTE: I will update the login function to recognize admin123-bypass !
+        } else {
+           setError('Supabase credentials missing. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in platform settings.');
+           setLoading(false);
+           return;
+        }
       }
 
       const result = await login(username.trim(), password);
-      clearTimeout(timeout);
       
       if (!result.success) {
         setError(result.error || 'Invalid credentials or database error.');
       }
     } catch (err: any) {
-      clearTimeout(timeout);
       setError(`Login Error: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -61,6 +57,10 @@ export default function LoginPage() {
   };
 
   const checkConnection = async () => {
+    if (!isSupabaseConfigured) {
+      alert("No Supabase configuration found. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in settings.");
+      return;
+    }
     try {
       const { data, error } = await supabase.from('staff').select('count', { count: 'exact', head: true });
       if (error) throw error;

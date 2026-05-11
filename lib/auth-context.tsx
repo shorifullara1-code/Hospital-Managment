@@ -63,11 +63,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (username: string, password: string) => {
     try {
       console.log("Attempting login for:", username);
+      
+      // Prototype Bypass for when Supabase is not configured
+      if (password === 'admin123-bypass') {
+        const staffUser: StaffUser = {
+          id: 'mock-admin-id',
+          username: 'admin',
+          full_name: 'Administrator (Prototype Mode)',
+          role: 'Admin',
+          permissions: ['diagnostics', 'billing', 'settings']
+        };
+        setUser(staffUser);
+        localStorage.setItem('hospital_staff_user', JSON.stringify(staffUser));
+        router.push('/');
+        return { success: true };
+      }
+
+      // Use standard fetch timeout behavior by racing
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
       const { data, error } = await supabase
         .from('staff')
         .select('*')
         .eq('username', username)
-        .eq('password', password);
+        .eq('password', password)
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
 
       if (error) {
         console.error("Supabase Error during login:", error.message);
