@@ -99,10 +99,7 @@ export default function SettingsView() {
 
     try {
       // Try to save to Supabase Database
-      const { error } = await supabase.from('hospital_settings').upsert(
-        { id: 1, ...settingsData },
-        { onConflict: 'id' }
-      );
+      const { error } = await supabase.from('hospital_settings').upsert({ id: 1, ...settingsData });
       
       if (error) {
         console.error("Error saving to Supabase:", error);

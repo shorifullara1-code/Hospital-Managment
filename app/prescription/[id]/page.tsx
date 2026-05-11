@@ -17,6 +17,7 @@ export default function PrescriptionPage(props: PageProps) {
   const params = use(props.params);
   const [appointment, setAppointment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [discount, setDiscount] = useState<number>(0);
   const [hospitalInfo, setHospitalInfo] = useState({
     name: "MedCore Hospital",
     phone: "+1 234 567 8900",
@@ -210,8 +211,22 @@ export default function PrescriptionPage(props: PageProps) {
           <div>
              <p className="mb-2">Appointment ID: {appointment.id}</p>
               <p className="flex items-center gap-2">
-                 Consultation Fee: <span className="font-medium text-gray-700">${appointment.fee}</span> 
+                 Consultation Fee: <span className="font-medium text-gray-700">${Math.max(0, appointment.fee - discount)}</span> 
+                 {discount > 0 && <span className="text-xs text-green-600 print:inline-block ml-2">(Discount Applied: ${discount})</span>}
                  <span className="print:inline hidden">(Paid)</span>
+                 <span className="print:hidden inline-flex items-center ml-4 gap-2 border-l pl-4 border-gray-300">
+                   <Label htmlFor="discountInput" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Discount ($)</Label>
+                   <input 
+                      id="discountInput"
+                      type="number" 
+                      value={discount} 
+                      onChange={e => setDiscount(parseFloat(e.target.value) || 0)} 
+                      className="border border-gray-300 rounded px-2 w-20 py-1 text-black outline-none focus:ring-1 focus:ring-primary transition-shadow text-sm font-medium" 
+                      placeholder="0" 
+                      min="0" 
+                      step="1" 
+                   />
+                 </span>
               </p>
           </div>
           <div className="text-center w-48">
