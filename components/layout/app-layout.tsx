@@ -19,11 +19,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If on login page, just show children
-  if (pathname === '/login') {
-    return <div className="h-full w-full">{children}</div>;
-  }
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/30 print:bg-white text-foreground print:text-black">
       <div className="flex flex-1 overflow-hidden print:overflow-visible">

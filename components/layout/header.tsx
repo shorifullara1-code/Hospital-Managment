@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Bell, Menu, User, LogOut } from "lucide-react";
+import { Search, Bell, Menu, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -17,7 +17,7 @@ import { Sidebar } from "./sidebar";
 import { useAuth } from "@/lib/auth-context";
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-4 sm:px-6">
@@ -71,11 +71,6 @@ export function Header() {
             <DropdownMenuSeparator />
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

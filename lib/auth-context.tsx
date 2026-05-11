@@ -37,10 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // If the user navigates to login, just push them back to the main app
-    if (pathname === '/login') {
-      router.push('/');
-    }
+    // No-op since we removed login
   }, [pathname, router]);
 
   const login = async (username: string, password: string) => {
