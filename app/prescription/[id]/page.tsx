@@ -30,13 +30,20 @@ export default function PrescriptionPage(props: PageProps) {
   useEffect(() => {
     setGenerationTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     const fetchHospitalInfo = async () => {
-      try {
-        const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
-        if (data && !error) {
-          setHospitalInfo(prev => ({ ...prev, ...data }));
+      const { data, error } = await supabase.from('hospital_settings').select('*').eq('id', 1).single();
+      if (data) {
+        setHospitalInfo(prev => ({ ...prev, ...data }));
+        // Cache locally
+        if (typeof window !== 'undefined') localStorage.setItem('hospital_settings', JSON.stringify(data));
+      } else {
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('hospital_settings');
+          if (stored) {
+            try {
+              setHospitalInfo(prev => ({ ...prev, ...JSON.parse(stored) }));
+            } catch (e) {}
+          }
         }
-      } catch (err) {
-        console.error("Error fetching hospital settings", err);
       }
     };
     fetchHospitalInfo();

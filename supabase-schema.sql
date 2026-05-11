@@ -67,17 +67,13 @@ CREATE TABLE public.diagnostics_labs (
 );
 
 CREATE TABLE public.hospital_settings (
-    id INTEGER PRIMARY KEY, -- Removed DEFAULT 1 as we want to control this
+    id INTEGER PRIMARY KEY DEFAULT 1,
     name TEXT,
     phone TEXT,
     email TEXT,
     address TEXT,
     logo TEXT
 );
-
--- Initialize with default settings
-INSERT INTO public.hospital_settings (id, name, phone, email, address)
-VALUES (1, 'MedCore Hospital', '+1 234 567 8900', 'contact@medcore.com', '123 Health Avenue, Medical District, Cityville, State 12345');
 
 CREATE TABLE public.prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,26 +139,4 @@ alter publication supabase_realtime add table public.appointments;
 alter publication supabase_realtime add table public.diagnostics_labs;
 alter publication supabase_realtime add table public.hospital_settings;
 alter publication supabase_realtime add table public.prescriptions;
-
-CREATE TABLE public.staff (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    role VARCHAR(20) DEFAULT 'Staff', -- 'Admin' or 'Staff'
-    permissions JSONB DEFAULT '[]' -- Array of section names: ["dashboard", "appointments", "patients", etc.]
-);
-
--- Note: In a real app, passwords should be hashed. Using plain text for now per specific requirements.
-INSERT INTO public.staff (username, password, full_name, role, permissions) 
-VALUES ('admin', 'admin123', 'Administrator', 'Admin', '["dashboard", "appointments", "patients", "doctors", "diagnostics", "billing", "reports", "settings"]');
-
-ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow anonymous read access" on public.staff FOR SELECT USING (true);
-CREATE POLICY "Allow anonymous insert access" on public.staff FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow anonymous update access" on public.staff FOR UPDATE USING (true);
-CREATE POLICY "Allow anonymous delete access" on public.staff FOR DELETE USING (true);
-
-alter publication supabase_realtime add table public.staff;
 

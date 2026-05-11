@@ -1,16 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const isSupabaseConfigured = 
-  supabaseUrl !== 'https://placeholder.supabase.co' && 
-  supabaseUrl !== 'your-project-url' && 
-  supabaseAnonKey !== 'placeholder' &&
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-if (!isSupabaseConfigured) {
-  console.warn("Supabase credentials missing or using placeholders. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.");
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase URL or Anon Key is missing. Supabase client will not work properly.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
