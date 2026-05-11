@@ -22,127 +22,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const dummyAdmin: StaffUser = {
+  id: 'mock-admin-id',
+  username: 'admin',
+  full_name: 'Administrator',
+  role: 'Admin',
+  permissions: ['diagnostics', 'billing', 'settings']
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<StaffUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<StaffUser | null>(dummyAdmin);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      setIsLoading(true);
-      const storedUser = localStorage.getItem('hospital_staff_user');
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          setUser(parsed);
-        } catch (e) {
-          localStorage.removeItem('hospital_staff_user');
-        }
-      }
-      setIsLoading(false);
-    };
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading) {
-      if (!user && pathname !== '/login') {
-        router.push('/login');
-      } else if (user && pathname === '/login') {
-        router.push('/');
-      } else if (user && pathname !== '/' && pathname !== '/login') {
-        const section = pathname.split('/')[1];
-        if (section && !hasPermission(section)) {
-          router.push('/');
-        }
-      }
+    // If the user navigates to login, just push them back to the main app
+    if (pathname === '/login') {
+      router.push('/');
     }
-  }, [user, isLoading, pathname, router]);
+  }, [pathname, router]);
 
   const login = async (username: string, password: string) => {
-    try {
-      console.log("Attempting login for:", username);
-      
-      // Prototype Bypass for when Supabase is not configured
-      if (password === 'admin123-bypass') {
-        const staffUser: StaffUser = {
-          id: 'mock-admin-id',
-          username: 'admin',
-          full_name: 'Administrator (Prototype Mode)',
-          role: 'Admin',
-          permissions: ['diagnostics', 'billing', 'settings']
-        };
-        setUser(staffUser);
-        localStorage.setItem('hospital_staff_user', JSON.stringify(staffUser));
-        router.push('/');
-        return { success: true };
-      }
-
-      // Use standard fetch timeout behavior by racing
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-
-      const { data, error } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('username', username)
-        .eq('password', password)
-        .abortSignal(controller.signal);
-
-      clearTimeout(timeoutId);
-
-      if (error) {
-        console.error("Supabase Error during login:", error.message);
-        return { success: false, error: `Database error: ${error.message}` };
-      }
-
-      if (!data || data.length === 0) {
-        console.error("Login failed: User not found");
-        return { success: false, error: "Invalid username or password." };
-      }
-
-      const userData = data[0];
-      let perms: string[] = [];
-      
-      try {
-        if (Array.isArray(userData.permissions)) {
-          perms = userData.permissions;
-        } else if (typeof userData.permissions === 'string') {
-          perms = JSON.parse(userData.permissions);
-        }
-      } catch (e) {
-        console.error("Error parsing permissions:", e);
-      }
-
-      const staffUser: StaffUser = {
-        id: userData.id,
-        username: userData.username,
-        full_name: userData.full_name,
-        role: userData.role,
-        permissions: Array.isArray(perms) ? perms : []
-      };
-
-      setUser(staffUser);
-      localStorage.setItem('hospital_staff_user', JSON.stringify(staffUser));
-      router.push('/');
-      return { success: true };
-    } catch (err: any) {
-      console.error("Login exception:", err);
-      return { success: false, error: err.message || "An unexpected error occurred." };
-    }
+    setUser(dummyAdmin);
+    router.push('/');
+    return { success: true };
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('hospital_staff_user');
-    router.push('/login');
+    // Normally would clear state, but we are bypassing login
+    router.push('/');
   };
 
   const hasPermission = (section: string) => {
-    if (!user) return false;
-    if (user.role === 'Admin') return true;
-    return user.permissions.includes(section);
+    return true; // Grant all permissions
   };
 
   return (
