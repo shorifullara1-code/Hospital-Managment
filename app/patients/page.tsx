@@ -53,6 +53,15 @@ export default function PatientsView() {
   const [patientLabs, setPatientLabs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Patient>>({});
+  const [editingId, setEditingId] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -70,13 +79,43 @@ export default function PatientsView() {
     setLoading(false);
   };
 
+  const handleViewHistory = async (patient: Patient) => {
+    setSelectedPatient(patient);
+    setHistoryOpen(true);
+    setLoadingHistory(true);
+    
+    // Fetch user's appointment history
+    const [aptResponse, labResponse] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select('*, doctors(full_name, speciality)')
+        .eq('patient_id', patient.id)
+        .order('appointment_date', { ascending: false }),
+      supabase
+        .from("diagnostics_labs")
+        .select("*, doctors(full_name)")
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+    ]);
+      
+    if (!aptResponse.error && aptResponse.data) {
+      setPatientHistory(aptResponse.data);
+    }
+    if (!labResponse.error && labResponse.data) {
+       setPatientLabs(labResponse.data);
+    }
+    setLoadingHistory(false);
+  };
+
   useEffect(() => {
     fetchPatients();
 
     // Subscribe to real-time changes
     const channel = supabase
       .channel('patients_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchPatients())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => {
+        fetchPatients();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
         if (selectedPatient && historyOpen) handleViewHistory(selectedPatient);
         fetchPatients();
@@ -121,32 +160,70 @@ export default function PatientsView() {
     setRegistering(false);
   };
 
-  const handleViewHistory = async (patient: Patient) => {
-    setSelectedPatient(patient);
-    setHistoryOpen(true);
-    setLoadingHistory(true);
+  const handleEditClick = (patient: Patient) => {
+    setEditingId(patient.id);
+    setEditFormData({
+      full_name: patient.full_name,
+      age: patient.age,
+      gender: patient.gender,
+      phone: patient.phone,
+      blood_group: patient.blood_group,
+      status: patient.status
+    });
+    setEditOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setSavingEdit(true);
+
+    const { error } = await supabase
+      .from("patients")
+      .update({
+        full_name: editFormData.full_name,
+        age: editFormData.age ? parseInt(editFormData.age as any) : null,
+        gender: editFormData.gender,
+        phone: editFormData.phone,
+        blood_group: editFormData.blood_group,
+        status: editFormData.status
+      })
+      .eq("id", editingId);
+
+    if (!error) {
+      setEditOpen(false);
+      fetchPatients();
+    } else {
+      console.error(error);
+      alert("Error updating patient: " + error.message);
+    }
+    setSavingEdit(false);
+  };
+
+  const handleDeleteClick = (patient: Patient) => {
+    setPatientToDelete(patient);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!patientToDelete) return;
+    setDeleting(true);
     
-    // Fetch user's appointment history
-    const [aptResponse, labResponse] = await Promise.all([
-      supabase
-        .from('appointments')
-        .select('*, doctors(full_name, speciality)')
-        .eq('patient_id', patient.id)
-        .order('appointment_date', { ascending: false }),
-      supabase
-        .from("diagnostics_labs")
-        .select("*, doctors(full_name)")
-        .eq("patient_id", patient.id)
-        .order("created_at", { ascending: false })
-    ]);
-      
-    if (!aptResponse.error && aptResponse.data) {
-      setPatientHistory(aptResponse.data);
+    const { error } = await supabase.from("patients").delete().eq("id", patientToDelete.id);
+    
+    if (!error) {
+      setDeleteOpen(false);
+      setPatientToDelete(null);
+      fetchPatients();
+    } else {
+      console.error(error);
+      if (error.code === '23503') {
+          alert("Cannot delete patient. They have existing records (appointments, prescriptions or lab tests). Please delete those first.");
+      } else {
+          alert("Error deleting patient: " + error.message);
+      }
     }
-    if (!labResponse.error && labResponse.data) {
-       setPatientLabs(labResponse.data);
-    }
-    setLoadingHistory(false);
+    setDeleting(false);
   };
 
   const filteredPatients = patients.filter(patient => 
@@ -242,7 +319,7 @@ export default function PatientsView() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground uppercase font-medium">Joined On</p>
-                      <p className="font-semibold text-sm mt-1">{new Date(selectedPatient?.last_visit ? selectedPatient.last_visit : Date.now()).toLocaleDateString()}</p>
+                      <p className="font-semibold text-sm mt-1">{selectedPatient?.last_visit ? new Date(selectedPatient.last_visit).toLocaleDateString() : 'N/A'}</p>
                     </div>
                  </div>
                )}
@@ -406,6 +483,8 @@ export default function PatientsView() {
                     <Link href={`/id-cards?query=${patient.patient_id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
                       ID Card
                     </Link>
+                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(patient)}>Edit</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(patient)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950">Delete</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -413,6 +492,105 @@ export default function PatientsView() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Patient Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Patient</DialogTitle>
+            <DialogDescription>
+              Update patient information.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdate}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Full Name *</Label>
+                <Input id="edit-name" required value={editFormData.full_name || ""} onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })} placeholder="John Doe" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-age">Age</Label>
+                  <Input id="edit-age" type="number" value={editFormData.age || ""} onChange={e => setEditFormData({ ...editFormData, age: parseInt(e.target.value) || undefined })} placeholder="30" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-gender">Gender</Label>
+                  <Select value={editFormData.gender || ""} onValueChange={(v) => setEditFormData({ ...editFormData, gender: v || "" })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-blood-group">Blood Group</Label>
+                <Select value={editFormData.blood_group || ""} onValueChange={(v) => setEditFormData({ ...editFormData, blood_group: v || "" })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A+">A+</SelectItem>
+                    <SelectItem value="A-">A-</SelectItem>
+                    <SelectItem value="B+">B+</SelectItem>
+                    <SelectItem value="B-">B-</SelectItem>
+                    <SelectItem value="O+">O+</SelectItem>
+                    <SelectItem value="O-">O-</SelectItem>
+                    <SelectItem value="AB+">AB+</SelectItem>
+                    <SelectItem value="AB-">AB-</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input id="edit-phone" value={editFormData.phone || ""} onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select value={editFormData.status || ""} onValueChange={(v) => setEditFormData({ ...editFormData, status: v || "" })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button type="submit" disabled={savingEdit}>
+                {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the patient record
+              for <span className="font-semibold text-foreground">{patientToDelete?.full_name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4 gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleting}>
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
