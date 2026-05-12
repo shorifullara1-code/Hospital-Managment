@@ -13,9 +13,11 @@ import {
   XCircle,
   AlertCircle,
   X,
-  FileText
+  FileText,
+  Camera
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 interface Appointment {
   id: string;
@@ -37,7 +39,9 @@ export default function AppointmentsPage() {
   const [search, setSearch] = useState('');
   
   const [showForm, setShowForm] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [formData, setFormData] = useState({
+    patient_id: '',
     given_name: '',
     family_name: '',
     appointment_date: '',
@@ -154,6 +158,16 @@ export default function AppointmentsPage() {
         </div>
       </header>
 
+      {showScanner && (
+        <BarcodeScanner 
+          onResult={(result) => {
+            setFormData({...formData, patient_id: result});
+            setShowScanner(false);
+          }} 
+          onClose={() => setShowScanner(false)} 
+        />
+      )}
+
       {showForm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
@@ -171,10 +185,19 @@ export default function AppointmentsPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input 
                     type="text" required
-                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.patient_id}
+                    onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
+                    className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="Scan barcode or type Patient ID"
                     autoFocus
                   />
+                  <button 
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary hover:text-primary/80 transition-colors p-1"
+                  >
+                    <Camera size={20} />
+                  </button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
