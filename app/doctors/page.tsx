@@ -1,139 +1,264 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { UserRound, Plus, Stethoscope, Mail, MoreVertical, X } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Search, UserPlus, Filter, Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
-export default function DoctorsPage() {
-  const [doctors, setDoctors] = useState([
-    { name: 'Dr. Sarah Collins', specialty: 'Cardiologist', status: 'Available', email: 'sarah.c@medcore.com' },
-    { name: 'Dr. James Wilson', specialty: 'Neurologist', status: 'On Leave', email: 'james.w@medcore.com' },
-    { name: 'Dr. Michael Chen', specialty: 'Pediatrician', status: 'Available', email: 'm.chen@medcore.com' },
-  ]);
+type Doctor = {
+  id: string;
+  doctor_id: string;
+  full_name: string;
+  speciality: string;
+  qualifications: string;
+  fee: number;
+  status: string;
+  total_appointments?: number;
+};
 
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ name: '', specialty: '', status: 'Available', email: '' });
+export default function DoctorsView() {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [search, setSearch] = useState("");
 
-  const handleAddDoctor = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.name) {
-      setDoctors([...doctors, formData]);
-      setShowForm(false);
-      setFormData({ name: '', specialty: '', status: 'Available', email: '' });
+  const [formData, setFormData] = useState({
+    doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}`,
+    name: "",
+    speciality: "",
+    qualification: "",
+    fee: "50",
+  });
+
+  const fetchDoctors = async () => {
+    setLoading(true);
+    const [docsRes, aptsRes] = await Promise.all([
+      supabase.from("doctors").select("*").order("created_at", { ascending: false }),
+      supabase.from("appointments").select("doctor_id")
+    ]);
+
+    if (!docsRes.error && docsRes.data) {
+      // Calculate appointments per doctor
+      const aptCount: Record<string, number> = {};
+      if (aptsRes.data) {
+        aptsRes.data.forEach((apt: any) => {
+          aptCount[apt.doctor_id] = (aptCount[apt.doctor_id] || 0) + 1;
+        });
+      }
+
+      const docsWithCounts = docsRes.data.map((doc: any) => ({
+        ...doc,
+        total_appointments: aptCount[doc.id] || 0
+      }));
+
+      setDoctors(docsWithCounts);
     }
+    setLoading(false);
   };
 
+  useEffect(() => {
+    fetchDoctors();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('doctors_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchDoctors())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => fetchDoctors())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) return;
+    setRegistering(true);
+
+    const { error } = await supabase.from("doctors").insert([{
+      doctor_id: formData.doctor_id || `DR-${Math.floor(1000 + Math.random() * 9000)}`,
+      full_name: formData.name,
+      speciality: formData.speciality,
+      qualifications: formData.qualification,
+      fee: parseFloat(formData.fee) || 0,
+      status: "Active"
+    }]);
+
+    if (!error) {
+      setIsOpen(false);
+      setFormData({ 
+         doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}`,
+         name: "", 
+         speciality: "", 
+         qualification: "", 
+         fee: "50" 
+      });
+      fetchDoctors();
+    } else {
+      console.error(error);
+      alert("Error registering doctor: " + error.message);
+    }
+    setRegistering(false);
+  };
+
+  const filteredDoctors = doctors.filter(doctor => 
+    doctor.full_name?.toLowerCase().includes(search.toLowerCase()) || 
+    doctor.speciality?.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <header className="mb-12 flex justify-between items-end">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <UserRound size={28} className="text-primary" />
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight uppercase italic">Medical Staff</h1>
-          </div>
-          <p className="text-slate-500 font-medium">Manage hospital doctors, specialists and on-duty staff</p>
+          <h1 className="text-3xl font-bold tracking-tight">Doctors</h1>
+          <p className="text-muted-foreground">
+            Manage doctors, their specialties, and appointment fees.
+          </p>
         </div>
-        <button 
-          onClick={() => setShowForm(true)}
-          className="bg-primary text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-        >
-          <Plus size={20} />
-          <span>Add New Doctor</span>
-        </button>
-      </header>
-
-      {showForm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-            <button 
-              onClick={() => setShowForm(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">Add Doctor</h2>
-            <form onSubmit={handleAddDoctor} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Name</label>
-                <input 
-                  type="text" required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g. Dr. John Doe"
-                />
+        
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger className={buttonVariants()}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Register Doctor
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Register Doctor</DialogTitle>
+              <DialogDescription>
+                Enter the doctor's details and set their appointment fee.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleRegister}>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="doctor_id">Doctor ID</Label>
+                  <Input id="doctor_id" required value={formData.doctor_id} onChange={e => setFormData({ ...formData, doctor_id: e.target.value })} placeholder="DR-1234" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Dr. John Doe" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="speciality">Speciality</Label>
+                  <Input id="speciality" value={formData.speciality} onChange={e => setFormData({ ...formData, speciality: e.target.value })} placeholder="e.g. Cardiology" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="qualification">Qualifications</Label>
+                  <Input id="qualification" value={formData.qualification} onChange={e => setFormData({ ...formData, qualification: e.target.value })} placeholder="e.g. MBBS, FACC" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fee">Appointment Fee ($)</Label>
+                  <Input id="fee" type="number" required value={formData.fee} onChange={e => setFormData({ ...formData, fee: e.target.value })} placeholder="50" />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Specialty</label>
-                <input 
-                  type="text" required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.specialty} onChange={e => setFormData({...formData, specialty: e.target.value})}
-                  placeholder="e.g. Cardiologist"
-                />
+              <div className="flex justify-end pt-4">
+                <Button type="submit" disabled={registering}>
+                  {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Register Doctor
+                </Button>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Email</label>
-                <input 
-                  type="email" required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
-                  placeholder="doctor@hospital.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Status</label>
-                <select 
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}
-                >
-                  <option>Available</option>
-                  <option>On Leave</option>
-                  <option>Busy</option>
-                </select>
-              </div>
-              <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl mt-4 hover:bg-slate-800 transition-colors">
-                Save Doctor Profile
-              </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {doctors.map(doc => (
-          <div key={doc.name} className="bg-white rounded-3xl border border-slate-200 p-6 hover:shadow-xl transition-all group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
-            
-            <div className="flex justify-between items-start mb-6 relative">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                <Stethoscope size={32} />
-              </div>
-              <button 
-                onClick={() => setDoctors(doctors.filter(d => d.name !== doc.name))}
-                className="text-rose-300 hover:text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
-                title="Remove Doctor"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="mb-6 relative">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{doc.name}</h3>
-              <p className="text-sm text-primary font-bold">{doc.specialty}</p>
-            </div>
-
-            <div className="space-y-3 pt-6 border-t border-slate-100 relative">
-              <div className="flex items-center gap-3 text-slate-500 hover:text-primary transition-colors cursor-pointer">
-                <Mail size={14} />
-                <span className="text-xs font-medium">{doc.email}</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-500">
-                <div className={`w-2 h-2 rounded-full ${doc.status === 'Available' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <span className="text-xs font-bold uppercase tracking-widest">{doc.status}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+          </DialogContent>
+        </Dialog>
       </div>
+
+      <Card>
+        <CardHeader className="py-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Registered Doctors</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search by name or specialty..."
+                  className="pl-8 h-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Button variant="outline" size="icon" className="h-9 w-9">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Doctor ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Speciality</TableHead>
+                <TableHead>Qualifications</TableHead>
+                <TableHead>Appointments</TableHead>
+                <TableHead>Appt. Fee</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredDoctors.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No doctors found. Register one to get started.
+                  </TableCell>
+                </TableRow>
+              ) : filteredDoctors.map((doctor) => (
+                <TableRow key={doctor.id}>
+                  <TableCell className="font-medium">{doctor.doctor_id}</TableCell>
+                  <TableCell className="font-bold">{doctor.full_name}</TableCell>
+                  <TableCell>{doctor.speciality}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{doctor.qualifications}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-50">
+                      {doctor.total_appointments || 0}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>${doctor.fee}</TableCell>
+                  <TableCell>
+                    <Badge variant={doctor.status === "Active" ? "default" : "secondary"}>
+                      {doctor.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm">Edit</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,252 +1,474 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { FlaskConical, Search, Plus, TestTube2, Microscope, Dna, FileText, CheckCircle2, AlertCircle, X, Camera } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { BarcodeScanner } from '@/components/BarcodeScanner';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PlayCircle, Download, FileText, CheckCircle2, Clock, Loader2, Plus, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface LabTest {
-  id: string;
-  patient_id: string;
-  test_name: string;
-  category: string;
-  status: 'pending' | 'completed';
-  amount: number;
-  date: string;
-}
+export default function DiagnosticsView() {
+  const [labs, setLabs] = useState<any[]>([]);
+  const [testCatalog, setTestCatalog] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
 
-export default function DiagnosticsPage() {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  
-  const [tests, setTests] = useState<LabTest[]>([
-    { id: 'LAB-9001', patient_id: 'P-1002', test_name: 'Complete Blood Count', category: 'Blood Tests', status: 'completed', amount: 500, date: '2026-05-12' },
-    { id: 'LAB-9002', patient_id: 'P-1005', test_name: 'Chest X-Ray', category: 'Radiology', status: 'pending', amount: 1500, date: '2026-05-13' }
-  ]);
-
-  const [showForm, setShowForm] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [formData, setFormData] = useState({ patient_id: '', test_name: '', category: 'Blood Tests', amount: '' });
-
-  const categories = [
-    { name: 'Blood Tests', icon: TestTube2, count: tests.filter(t => t.category === 'Blood Tests').length },
-    { name: 'Radiology', icon: Microscope, count: tests.filter(t => t.category === 'Radiology').length },
-    { name: 'Genetic', icon: Dna, count: tests.filter(t => t.category === 'Genetic').length },
-  ];
-
-  const handleAddTest = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.test_name && formData.patient_id) {
-      const newTest: LabTest = {
-        id: 'LAB-' + Math.floor(Math.random() * 9000 + 1000),
-        patient_id: formData.patient_id,
-        test_name: formData.test_name,
-        category: formData.category,
-        status: 'pending',
-        amount: Number(formData.amount),
-        date: new Date().toISOString().split('T')[0]
-      };
-      setTests([newTest, ...tests]);
-      setShowForm(false);
-      setFormData({ patient_id: '', test_name: '', category: 'Blood Tests', amount: '' });
-    }
+  const isLabsFullyPaid = (lab: any) => {
+    const test = testCatalog.find(t => t.name === lab.test_name);
+    const price = test ? test.price : 50;
+    const paidVal = paidLabs[lab.id];
+    if (paidVal === true) return true;
+    return (Number(paidVal) || 0) >= price;
   };
 
-  const filteredTests = tests.filter(t => {
-    if (activeCategory && t.category !== activeCategory) return false;
-    if (search && !t.id.toLowerCase().includes(search.toLowerCase()) && !t.patient_id.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
+  // Catalog Form
+  const [catalogForm, setCatalogForm] = useState({ name: "", category: "Hematology", price: "0" });
+
+  const [formData, setFormData] = useState({
+    patient_id: "",
+    doctor_id: "",
+    test_name: "",
+    category: "",
+    date: new Date().toISOString().split('T')[0]
   });
 
+  const fetchData = async () => {
+    setLoading(true);
+    const [labsRes, ptsRes, docsRes] = await Promise.all([
+      supabase.from("diagnostics_labs").select("*, patients(full_name, patient_id), doctors(full_name)").order("created_at", { ascending: false }),
+      supabase.from("patients").select("id, full_name, patient_id"),
+      supabase.from("doctors").select("id, full_name, speciality")
+    ]);
+    
+    if (!labsRes.error && labsRes.data) setLabs(labsRes.data);
+    if (!ptsRes.error && ptsRes.data) setPatients(ptsRes.data);
+    if (!docsRes.error && docsRes.data) setDoctors(docsRes.data);
+    
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('diagnostics_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'diagnostics_labs' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchData())
+      .subscribe();
+
+    const stored = localStorage.getItem('diag_catalog');
+    if (stored) {
+      setTestCatalog(JSON.parse(stored));
+    } else {
+      const defaultCatalog = [
+        { id: "1", name: "Complete Blood Count (CBC)", category: "Hematology", price: 30 },
+        { id: "2", name: "Lipid Panel", category: "Biochemistry", price: 40 },
+        { id: "3", name: "MRI Scan - Brain", category: "Radiology", price: 500 }
+      ];
+      setTestCatalog(defaultCatalog);
+      localStorage.setItem("diag_catalog", JSON.stringify(defaultCatalog));
+    }
+    
+    const paidStorage = localStorage.getItem('diag_paid_labs');
+    if (paidStorage) {
+      setPaidLabs(JSON.parse(paidStorage));
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handlePay = (labId: string) => {
+    const newPaid = { ...paidLabs, [labId]: true };
+    setPaidLabs(newPaid);
+    localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
+  };
+
+  const handleAddCatalog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catalogForm.name) return;
+    const newCatalog = [...testCatalog, {
+       id: Math.random().toString(36).substring(7),
+       name: catalogForm.name,
+       category: catalogForm.category,
+       price: parseFloat(catalogForm.price) || 0
+    }];
+    setTestCatalog(newCatalog);
+    localStorage.setItem("diag_catalog", JSON.stringify(newCatalog));
+    setCatalogForm({ name: "", category: "Hematology", price: "0" });
+  };
+
+  const handleRemoveCatalog = (id: string) => {
+    const newCatalog = testCatalog.filter(t => t.id !== id);
+    setTestCatalog(newCatalog);
+    localStorage.setItem("diag_catalog", JSON.stringify(newCatalog));
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.patient_id || !formData.doctor_id) {
+       alert("Please select a patient and referral doctor.");
+       return;
+    }
+    
+    setAdding(true);
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    
+    const { error } = await supabase.from("diagnostics_labs").insert([{
+      test_id: `LAB-${randomNum}`,
+      patient_id: formData.patient_id,
+      doctor_id: formData.doctor_id,
+      test_name: formData.test_name,
+      category: formData.category,
+      test_date: formData.date,
+      status: "Processing"
+    }]);
+
+    if (!error) {
+      setIsOpen(false);
+      setFormData({
+        patient_id: "",
+        doctor_id: "",
+        test_name: "",
+        category: "",
+        date: new Date().toISOString().split('T')[0]
+      });
+      fetchData();
+    } else {
+      alert("Error adding test: " + error.message);
+    }
+    setAdding(false);
+  };
+
+  const handleComplete = async (id: string) => {
+    await supabase.from("diagnostics_labs").update({ status: "Completed" }).eq("id", id);
+    fetchData();
+  };
+
   return (
-    <div className="p-8 max-w-7xl mx-auto min-h-screen relative">
-      <header className="mb-12 flex justify-between items-end">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <FlaskConical size={28} className="text-primary" />
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight uppercase italic">Diagnostics Lab</h1>
-          </div>
-          <p className="text-slate-500 font-medium">Laboratory tests, radiology reports and diagnostic management</p>
+          <h1 className="text-3xl font-bold tracking-tight">Diagnostics & Labs</h1>
+          <p className="text-muted-foreground">
+            Manage lab requests, imaging, and diagnostic test catalog.
+          </p>
         </div>
-        <button 
-          onClick={handleAddTest}
-          className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
-        >
-          <Plus size={20} />
-          <span>New Lab Test</span>
-        </button>
-      </header>
+        
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger className={buttonVariants()}>
+            <PlayCircle className="mr-2 h-4 w-4" />
+            New Test Request
+          </DialogTrigger>
+          <DialogContent>
+             <DialogHeader>
+               <DialogTitle>New Diagnostic Test</DialogTitle>
+               <DialogDescription>Add a new lab or imaging request.</DialogDescription>
+             </DialogHeader>
+             <form onSubmit={handleAdd} className="grid gap-4 py-4">
+               <div className="grid gap-2">
+                 <Label>Patient *</Label>
+                 <Input 
+                   type="search" 
+                   placeholder="Search Patient by ID or Name..." 
+                   onChange={(e) => {
+                     const term = e.target.value.toLowerCase();
+                     if (term.length > 0) {
+                       const found = patients.find(p => 
+                         p.patient_id?.toLowerCase().includes(term) || 
+                         p.full_name?.toLowerCase().includes(term)
+                       );
+                       if (found) {
+                         setFormData({...formData, patient_id: found.id});
+                       }
+                     }
+                   }} 
+                 />
+                 <Select value={formData.patient_id} onValueChange={v => setFormData({...formData, patient_id: v || ""})}>
+                    <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
+                    <SelectContent>
+                      {patients.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.patient_id})</SelectItem>
+                      ))}
+                    </SelectContent>
+                 </Select>
+               </div>
+               <div className="grid gap-2">
+                 <Label>Referred By Doctor *</Label>
+                 <Input 
+                   type="search" 
+                   placeholder="Search Doctor by Name..." 
+                   onChange={(e) => {
+                     const term = e.target.value.toLowerCase();
+                     if (term.length > 0) {
+                       const found = doctors.find(d => 
+                         d.full_name?.toLowerCase().includes(term)
+                       );
+                       if (found) {
+                         setFormData({...formData, doctor_id: found.id});
+                       }
+                     }
+                   }} 
+                 />
+                 <Select value={formData.doctor_id} onValueChange={v => setFormData({...formData, doctor_id: v || ""})}>
+                    <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
+                    <SelectContent>
+                      {doctors.map(d => (
+                        <SelectItem key={d.id} value={d.id}>{d.full_name} ({d.speciality})</SelectItem>
+                      ))}
+                    </SelectContent>
+                 </Select>
+               </div>
+               
+               <div className="grid gap-2">
+                 <Label>Select Test *</Label>
+                 <Select 
+                   required
+                   value={formData.test_name} 
+                   onValueChange={v => {
+                     const selectedTest = testCatalog.find(t => t.name === v);
+                     if (selectedTest) {
+                       setFormData({...formData, test_name: selectedTest.name, category: selectedTest.category});
+                     }
+                   }}
+                 >
+                    <SelectTrigger><SelectValue placeholder="Select from catalog..." /></SelectTrigger>
+                    <SelectContent>
+                      {testCatalog.map(t => (
+                        <SelectItem key={t.id} value={t.name}>{t.name} - ${t.price}</SelectItem>
+                      ))}
+                    </SelectContent>
+                 </Select>
+               </div>
+               
+               <div className="grid gap-2">
+                 <Label>Date</Label>
+                 <Input type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+               </div>
+               <div className="flex justify-end pt-4">
+                 <Button type="submit" disabled={adding}>
+                   {adding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                   Add Request
+                 </Button>
+               </div>
+             </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      {showScanner && (
-        <BarcodeScanner 
-          onResult={(result) => {
-            setFormData({...formData, patient_id: result});
-            setShowScanner(false);
-          }} 
-          onClose={() => setShowScanner(false)} 
-        />
-      )}
-
-      {showForm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-            <button 
-              onClick={() => setShowForm(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">New Lab Test</h2>
-            <form onSubmit={handleAddTest} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Patient ID / Scan Barcode</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="text" required
-                    className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    value={formData.patient_id} onChange={e => setFormData({...formData, patient_id: e.target.value})}
-                    placeholder="Scan barcode or type ID"
-                    autoFocus
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowScanner(true)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary hover:text-primary/80 transition-colors p-1"
-                  >
-                    <Camera size={20} />
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Test Name</label>
-                <input 
-                  type="text" required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.test_name} onChange={e => setFormData({...formData, test_name: e.target.value})}
-                  placeholder="e.g. Complete Blood Count"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-600 mb-1">Category</label>
-                  <select 
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}
-                  >
-                    <option value="Blood Tests">Blood Tests</option>
-                    <option value="Radiology">Radiology</option>
-                    <option value="Genetic">Genetic</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-600 mb-1">Fees (₹)</label>
-                  <input 
-                    type="number" required
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})}
-                  />
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl mt-4 hover:bg-slate-800 transition-colors">
-                Save & Generate Invoice
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-             <div className="flex justify-between items-center mb-4">
-               <h3 className="font-bold text-slate-800 block uppercase tracking-widest text-xs">Categories</h3>
-               {activeCategory && <button onClick={() => setActiveCategory(null)} className="text-[10px] text-primary font-bold">Clear</button>}
-             </div>
-             <nav className="space-y-1">
-                {categories.map(cat => (
-                  <button 
-                    key={cat.name} 
-                    onClick={() => setActiveCategory(cat.name)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors text-slate-600 group",
-                      activeCategory === cat.name ? "bg-primary/5 text-primary" : "hover:text-primary"
-                    )}
-                  >
-                    <div className="flex items-center gap-3 font-bold text-sm italic">
-                      <cat.icon size={16} className={cn(activeCategory === cat.name ? "text-primary" : "text-slate-400 group-hover:text-primary")} />
-                      {cat.name}
-                    </div>
-                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-black text-slate-400">{cat.count}</span>
-                  </button>
-                ))}
-             </nav>
-           </div>
-        </div>
-
-        <div className="lg:col-span-3">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm min-h-[500px] flex flex-col p-8">
-            <div className="flex justify-between items-center mb-8">
-               <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Clinical Laboratory</h2>
-                <div className="relative w-72">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-                  <input 
-                    type="text" 
-                    placeholder="Search Test ID or Patient ID..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
+      <Tabs defaultValue="requests" className="w-full">
+        <TabsList>
+          <TabsTrigger value="requests">Test Requests</TabsTrigger>
+          <TabsTrigger value="catalog">Tests Catalog</TabsTrigger>
+        </TabsList>
+        <TabsContent value="requests" className="mt-4">
+            <div className="grid gap-6 md:grid-cols-3 mb-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <Clock className="h-8 w-8 text-amber-500" />
+                    <div className="text-3xl font-bold">{labs.filter(l => l.status !== 'Completed').length}</div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Completed Tests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <CheckCircle2 className="h-8 w-8 text-green-500" />
+                    <div className="text-3xl font-bold">{labs.filter(l => l.status === 'Completed').length}</div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <FileText className="h-8 w-8 text-primary" />
+                    <div className="text-3xl font-bold">{labs.length}</div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            {filteredTests.length > 0 ? (
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/50 border-b border-slate-100">
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Test ID</th>
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Patient ID</th>
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Test Name</th>
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Fees (₹)</th>
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 italic transition-all">
-                      {filteredTests.map((test) => (
-                        <tr key={test.id} className="hover:bg-slate-50/50 group transition-colors">
-                          <td className="px-6 py-4 font-mono text-xs font-bold text-slate-600 flex items-center gap-2">
-                             <FileText size={14} className="text-slate-400" /> {test.id}
-                          </td>
-                          <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">{test.patient_id}</td>
-                          <td className="px-6 py-4 font-bold text-slate-800">{test.test_name}</td>
-                          <td className="px-6 py-4 text-sm text-slate-500 font-medium">{test.date}</td>
-                          <td className="px-6 py-4 font-black tracking-tighter text-slate-700">₹{test.amount}</td>
-                          <td className="px-6 py-4">
-                            <div className={cn(
-                              "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 w-fit border",
-                              test.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'
-                            )}>
-                              {test.status === 'completed' ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                              {test.status}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                 </table>
-               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
-                 <FlaskConical size={64} className="mb-4 opacity-10 text-slate-500" />
-                 <p className="text-slate-400 font-bold italic mb-2">No tests found matching your criteria.</p>
-                 <button onClick={handleAddTest} className="text-primary font-bold hover:underline text-sm">Add a new test record</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Diagnostic Reports</CardTitle>
+                <CardDescription>Track the status of recent lab tests and imaging.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Test ID</TableHead>
+                      <TableHead>Patient / Doctor</TableHead>
+                      <TableHead>Test Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                        </TableCell>
+                      </TableRow>
+                    ) : labs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No records found.
+                        </TableCell>
+                      </TableRow>
+                    ) : labs.map((lab) => (
+                      <TableRow key={lab.id}>
+                        <TableCell className="font-medium text-primary">{lab.test_id}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{lab.patients?.full_name}</div>
+                          <div className="text-xs text-muted-foreground">By {lab.doctors?.full_name}</div>
+                        </TableCell>
+                        <TableCell>{lab.test_name}</TableCell>
+                        <TableCell>{lab.category}</TableCell>
+                        <TableCell>{lab.test_date}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            lab.status === "Completed" ? "default" :
+                            lab.status === "Processing" ? "secondary" : "outline"
+                          }>
+                            {lab.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {isLabsFullyPaid(lab) ? (
+                            <Button variant="ghost" size="sm" className="mr-2 text-green-600" onClick={() => window.open(`/diagnostics/receipt/${lab.id}`, '_blank')}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Receipt
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mr-2 border-green-600 text-green-600 hover:bg-green-50" 
+                              onClick={() => {
+                                 // Redirect to billing page for partial or full payments
+                                 window.location.href = '/billing';
+                              }}
+                            >
+                              Collect Dues
+                            </Button>
+                          )}
+                          {lab.status === "Processing" && (
+                            <Button variant="outline" size="sm" onClick={() => handleComplete(lab.id)}>
+                              Mark Completed
+                            </Button>
+                          )}
+                          {lab.status === "Completed" && (
+                             <Button variant="ghost" size="sm" onClick={() => alert("Simulating PDF download for: " + lab.test_name)}>
+                               <Download className="h-4 w-4 mr-2" />
+                               Report
+                             </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+        </TabsContent>
+
+        <TabsContent value="catalog" className="mt-4">
+          <Card>
+             <CardHeader>
+                <CardTitle>Catalog of Tests</CardTitle>
+                <CardDescription>Manage your available tests, categorizations, and prices.</CardDescription>
+             </CardHeader>
+             <CardContent>
+                <form onSubmit={handleAddCatalog} className="flex flex-wrap lg:flex-nowrap gap-4 mb-6 items-end border p-4 rounded-md bg-muted/30">
+                   <div className="grid gap-2 flex-1 w-full min-w-[200px]">
+                      <Label>Test Name</Label>
+                      <Input required placeholder="MRI - Left Knee" value={catalogForm.name} onChange={e => setCatalogForm({...catalogForm, name: e.target.value})} />
+                   </div>
+                   <div className="grid gap-2">
+                      <Label>Category</Label>
+                      <Select value={catalogForm.category} onValueChange={v => setCatalogForm({...catalogForm, category: v || ""})}>
+                        <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Hematology">Hematology</SelectItem>
+                          <SelectItem value="Biochemistry">Biochemistry</SelectItem>
+                          <SelectItem value="Radiology">Radiology</SelectItem>
+                          <SelectItem value="Pathology">Pathology</SelectItem>
+                          <SelectItem value="Microbiology">Microbiology</SelectItem>
+                        </SelectContent>
+                      </Select>
+                   </div>
+                   <div className="grid gap-2 w-[120px]">
+                      <Label>Price ($)</Label>
+                      <Input required type="number" min="0" value={catalogForm.price} onChange={e => setCatalogForm({...catalogForm, price: e.target.value})} />
+                   </div>
+                   <Button type="submit" className="shrink-0"><Plus className="h-4 w-4 mr-2" />Add Test</Button>
+                </form>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Test Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {testCatalog.length === 0 ? (
+                      <TableRow>
+                         <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">No tests in catalog yet.</TableCell>
+                      </TableRow>
+                    ) : testCatalog.map((test) => (
+                      <TableRow key={test.id}>
+                        <TableCell className="font-medium">{test.name}</TableCell>
+                        <TableCell>{test.category}</TableCell>
+                        <TableCell className="font-medium text-green-600">${test.price}</TableCell>
+                        <TableCell className="text-right">
+                           <Button variant="ghost" size="icon" onClick={() => handleRemoveCatalog(test.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+             </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+

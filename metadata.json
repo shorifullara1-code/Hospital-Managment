@@ -1,8 +1,6 @@
 {
-  "name": "MedCore Pro",
-  "description": "Advanced Hospital Management System with Patient ID Card Printing and Real-time Settings Sync",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "name": "MedCore - Hospital & Diagnostic Management",
+  "description": "A comprehensive web application for hospital administration, patient management, and diagnostic tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

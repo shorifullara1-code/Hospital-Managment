@@ -1,96 +1,243 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { BarChart3, TrendingUp, Users, Activity, Download } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Activity, Users, DollarSign, CalendarCheck, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
-const data = [
-  { name: 'Jan', patients: 400 },
-  { name: 'Feb', patients: 300 },
-  { name: 'Mar', patients: 550 },
-  { name: 'Apr', patients: 450 },
-  { name: 'May', patients: 700 },
-  { name: 'Jun', patients: 650 },
-];
+export default function ReportsView() {
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    totalAppointments: 0,
+    totalIncome: 0,
+    activeDoctors: 0,
+  });
 
-export default function ReportsPage() {
+  const [dailyDoctorStats, setDailyDoctorStats] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      // Fetch totals
+      const [ptsRes, aptsRes, docsRes] = await Promise.all([
+        supabase.from('patients').select('*', { count: 'exact', head: true }),
+        supabase.from('appointments').select('*, doctors(full_name, fee)'),
+        supabase.from('doctors').select('*', { count: 'exact', head: true })
+      ]);
+
+      let income = 0;
+      const breakdown: Record<string, any> = {};
+
+      if (aptsRes.data) {
+        aptsRes.data.forEach((apt: any) => {
+           // Income calculation
+           const fee = apt.fee_amount || apt.doctors?.fee || 50;
+           income += fee; // Including all scheduled/completed for simplified report
+
+           // Daily breakdown calculation
+           const date = apt.appointment_date;
+           const doctorId = apt.doctor_id;
+           const doctorName = apt.doctors?.full_name || "Unknown Doctor";
+           const key = `${date}_${doctorId}`;
+
+           if (!breakdown[key]) {
+             breakdown[key] = {
+               date,
+               doctorName,
+               count: 0,
+               totalFees: 0
+             };
+           }
+           breakdown[key].count += 1;
+           breakdown[key].totalFees += fee;
+        });
+      }
+
+      // Convert breakdown map to sorted array
+      const sortedBreakdown = Object.values(breakdown).sort((a: any, b: any) => {
+        // Sort by date descending, then doctor name
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return a.doctorName.localeCompare(b.doctorName);
+      });
+
+      setDailyDoctorStats(sortedBreakdown);
+      setStats({
+        totalPatients: ptsRes.count || 0,
+        totalAppointments: aptsRes.data?.length || 0,
+        totalIncome: income,
+        activeDoctors: docsRes.count || 0,
+      });
+
+      setLoading(false);
+    }
+    
+    fetchStats();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('reports_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchStats())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <header className="mb-12 flex justify-between items-end">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <BarChart3 size={28} className="text-primary" />
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight uppercase italic">Analytics & Reports</h1>
-          </div>
-          <p className="text-slate-500 font-medium">Visualized hospital data, performance metrics and growth statistics</p>
+          <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+          <p className="text-muted-foreground">
+            Overview of hospital performance, patient statistics, and revenue.
+          </p>
         </div>
-        <button 
-          onClick={() => alert("Report Exported!")}
-          className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100"
-        >
-          <Download size={20} />
-          <span>Export Stats</span>
-        </button>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-           <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm relative overflow-hidden min-h-[400px] flex flex-col">
-              <div className="absolute top-0 right-0 p-8">
-                <TrendingUp className="text-emerald-500" size={32} />
-              </div>
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-8">Patient Growth</h2>
-              <div className="flex-1 h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-                    <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                    <Bar dataKey="patients" fill="#4F46E5" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-           </div>
-
-           <div className="grid grid-cols-2 gap-6">
-              <div className="bg-indigo-600 p-8 rounded-[40px] text-white shadow-xl shadow-indigo-100">
-                 <Users className="mb-4 opacity-50" size={32} />
-                 <p className="text-4xl font-black tracking-tighter">1,284</p>
-                 <p className="text-xs font-black uppercase tracking-widest opacity-70">Total Active Patients</p>
-              </div>
-              <div className="bg-slate-900 p-8 rounded-[40px] text-white shadow-xl shadow-slate-200">
-                 <Activity className="mb-4 opacity-50" size={32} />
-                 <p className="text-4xl font-black tracking-tighter">98.2%</p>
-                 <p className="text-xs font-black uppercase tracking-widest opacity-70">Bed Occupancy Rate</p>
-              </div>
-           </div>
-        </div>
-
-        <div className="space-y-6">
-           <div className="bg-white p-6 rounded-[40px] border border-slate-200 shadow-sm">
-             <h3 className="font-black text-slate-800 mb-6 uppercase tracking-widest text-xs">Department Performance</h3>
-             <div className="space-y-6">
-                {[
-                  { name: 'Outpatient', value: 85, color: 'bg-blue-500' },
-                  { name: 'Surgery', value: 42, color: 'bg-purple-500' },
-                  { name: 'Pediatrics', value: 68, color: 'bg-emerald-500' },
-                  { name: 'Emergency', value: 94, color: 'bg-rose-500' },
-                ].map(dept => (
-                  <div key={dept.name} className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      <span>{dept.name}</span>
-                      <span>{dept.value}%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${dept.color}`} style={{ width: `${dept.value}%` }} />
-                    </div>
-                  </div>
-                ))}
-             </div>
-           </div>
+        <div className="flex gap-2">
+           <Button variant="outline">Export Full Report</Button>
+           <Button>Generate Tax Statement</Button>
         </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${loading ? "..." : stats.totalIncome.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loading ? "..." : stats.totalPatients}</div>
+            <p className="text-xs text-muted-foreground">+180 new this quarter</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Appointments</CardTitle>
+            <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loading ? "..." : stats.totalAppointments}</div>
+            <p className="text-xs text-muted-foreground">+19% from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Doctors</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loading ? "..." : stats.activeDoctors}</div>
+            <p className="text-xs text-muted-foreground">+2 joined recently</p>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Daily Doctor Financial Breakdown</CardTitle>
+              <CardDescription>
+                Appointments count and fees collected per doctor, per day.
+              </CardDescription>
+            </div>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Doctor Name</TableHead>
+                    <TableHead className="text-center">Appointments</TableHead>
+                    <TableHead className="text-right">Total Fees</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4">Loading stats...</TableCell>
+                    </TableRow>
+                  ) : dailyDoctorStats.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4">No data available</TableCell>
+                    </TableRow>
+                  ) : dailyDoctorStats.map((stat, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{stat.date}</TableCell>
+                      <TableCell className="font-medium">{stat.doctorName}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline">{stat.count}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-green-600">
+                        ${stat.totalFees.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="col-span-3">
+          <CardHeader>
+             <CardTitle>Recent Feedback</CardTitle>
+             <CardDescription>
+               Latest satisfaction surveys from patients.
+             </CardDescription>
+          </CardHeader>
+          <CardContent>
+             <div className="space-y-8">
+               <div className="flex items-center">
+                 <div className="ml-4 space-y-1">
+                   <p className="text-sm font-medium leading-none">Emily R.</p>
+                   <p className="text-sm text-muted-foreground">"Dr. Smith was amazing. Very detailed!"</p>
+                 </div>
+                 <div className="ml-auto font-medium text-amber-500">★★★★★</div>
+               </div>
+               <div className="flex items-center">
+                 <div className="ml-4 space-y-1">
+                   <p className="text-sm font-medium leading-none">Michael B.</p>
+                   <p className="text-sm text-muted-foreground">"Wait times were a bit long today."</p>
+                 </div>
+                 <div className="ml-auto font-medium text-amber-500">★★★☆☆</div>
+               </div>
+               <div className="flex items-center">
+                 <div className="ml-4 space-y-1">
+                   <p className="text-sm font-medium leading-none">Sarah L.</p>
+                   <p className="text-sm text-muted-foreground">"Prescription process was seamless."</p>
+                 </div>
+                 <div className="ml-auto font-medium text-amber-500">★★★★★</div>
+               </div>
+             </div>
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
   );
 }

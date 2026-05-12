@@ -1,197 +1,98 @@
-'use client';
-
-import React from 'react';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
-import { 
-  Users, 
-  Calendar, 
-  Settings, 
-  Activity, 
-  IdCard,
-  ArrowRight,
-  Plus
-} from 'lucide-react';
-import { motion } from 'motion/react';
-
-interface Patient {
-  id: string;
-  patient_id: string;
-  family_name: string;
-  given_name: string;
-  created_at: string;
-}
+import { Users, AlertCircle, ArrowUpRight, ArrowDownRight, Activity, Calendar } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { dashboardStats, recentAppointments, revenueData } from "@/lib/data";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
 
 export default function Dashboard() {
-  const [recentPatients, setRecentPatients] = React.useState<Patient[]>([]);
-  const [stats, setStats] = React.useState({ patients: '0', appointments: '0' });
-
-  React.useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    // Fetch counts
-    const { count: patientCount } = await supabase.from('patients').select('*', { count: 'exact', head: true });
-    const { count: apptCount } = await supabase.from('appointments').select('*', { count: 'exact', head: true });
-    
-    setStats({
-      patients: (patientCount || 0).toLocaleString(),
-      appointments: (apptCount || 0).toString() + ' Total'
-    });
-
-    // Fetch recent patients
-    const { data: patients } = await supabase
-      .from('patients')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    
-    if (patients) setRecentPatients(patients);
-  };
-
-  const cards = [
-    { 
-      title: 'Patients', 
-      desc: 'Register and manage patient records', 
-      icon: Users, 
-      color: 'bg-blue-500', 
-      href: '/patients',
-      count: stats.patients
-    },
-    { 
-      title: 'Appointments', 
-      desc: 'Schedule and track consultations', 
-      icon: Calendar, 
-      color: 'bg-indigo-500', 
-      href: '/appointments',
-      count: stats.appointments
-    },
-    { 
-      title: 'ID Cards', 
-      desc: 'Generate & print patient ID cards', 
-      icon: IdCard, 
-      color: 'bg-purple-600', 
-      href: '/id-cards',
-      count: 'Generator'
-    },
-    { 
-      title: 'Settings', 
-      desc: 'Configure hospital profile & data', 
-      icon: Settings, 
-      color: 'bg-slate-700', 
-      href: '/settings',
-      count: 'System'
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-slate-50 p-8 pt-12">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-12">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
-              <Activity size={24} />
-            </div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">MedCore Pro</h1>
-          </div>
-          <p className="text-slate-500">Welcome back, Administrator</p>
-        </header>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Welcome back, Dr. Smith. Here's an overview of today's activities.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {cards.map((card, i) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <Link href={card.href} className="block group">
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white mb-4 shadow-lg", card.color)}>
-                    <card.icon size={24} />
-                  </div>
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-bold text-slate-800">{card.title}</h3>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{card.count}</span>
-                  </div>
-                  <p className="text-sm text-slate-500 mb-6">{card.desc}</p>
-                  <div className="flex items-center gap-2 text-primary font-bold text-sm">
-                    Open Dashboard <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {dashboardStats.map((stat, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
+              {index === 0 ? <Users className="h-4 w-4 text-muted-foreground" /> :
+               index === 1 ? <Calendar className="h-4 w-4 text-muted-foreground" /> :
+               index === 2 ? <Activity className="h-4 w-4 text-muted-foreground" /> :
+               <AlertCircle className="h-4 w-4 text-muted-foreground" />}
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className={`text-xs flex items-center ${stat.trend === "up" ? "text-green-500" : stat.trend === "down" ? "text-red-500" : "text-muted-foreground"}`}>
+                {stat.trend === "up" ? <ArrowUpRight className="h-3 w-3 mr-1" /> : stat.trend === "down" ? <ArrowDownRight className="h-3 w-3 mr-1" /> : null}
+                {stat.change} from last month
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              Recent Patient Registrations
-              <Link href="/patients" className="text-xs text-primary ml-auto font-bold uppercase tracking-widest hover:underline">View All</Link>
-            </h2>
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-               {recentPatients.length > 0 ? (
-                 <div className="divide-y divide-slate-100">
-                    {recentPatients.map(patient => (
-                      <div key={patient.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">
-                            {(patient.given_name?.[0] || '')}{(patient.family_name?.[0] || '')}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-800 uppercase tracking-tight">{patient.given_name} {patient.family_name}</p>
-                            <p className="text-xs text-slate-500 font-mono italic">{patient.patient_id}</p>
-                          </div>
-                        </div>
-                        <Link 
-                          href="/patients" 
-                          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors"
-                        >
-                          Print ID
-                        </Link>
-                      </div>
-                    ))}
-                 </div>
-               ) : (
-                 <div className="p-8 text-center text-slate-400">
-                    <Link href="/patients" className="flex flex-col items-center gap-4 hover:text-primary transition-colors">
-                      <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                        <Plus size={32} />
-                      </div>
-                      <p className="font-semibold">Start with Patient Registration</p>
-                    </Link>
-                 </div>
-               )}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Overview (Weekly Revenue)</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <div className="h-[300px] w-full">
+              <RevenueChart data={revenueData} />
             </div>
-          </div>
-          
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold text-slate-800">Quick Actions</h2>
-            <div className="space-y-4">
-              <button className="w-full bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4 hover:border-primary/50 transition-all text-left shadow-sm hover:shadow-md group">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Plus size={20} />
-                </div>
-                <div>
-                  <p className="font-bold text-slate-800">New Appointment</p>
-                  <p className="text-xs text-slate-500">Book a slot for a patient</p>
-                </div>
-              </button>
-              <button className="w-full bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4 hover:border-indigo-500/50 transition-all text-left shadow-sm hover:shadow-md group">
-                <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Settings size={20} />
-                </div>
-                <div>
-                  <p className="font-bold text-slate-800">Hospital Profile</p>
-                  <p className="text-xs text-slate-500">Update contact and address</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Recent Appointments</CardTitle>
+            <CardDescription>
+              There are {dashboardStats[1].value} appointments scheduled for today.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentAppointments.map((appointment) => (
+                  <TableRow key={appointment.id}>
+                    <TableCell>
+                      <div className="font-medium">{appointment.patient}</div>
+                      <div className="text-xs text-muted-foreground md:hidden lg:block">
+                        {appointment.doctor}
+                      </div>
+                    </TableCell>
+                    <TableCell>{appointment.time}</TableCell>
+                    <TableCell>
+                      <Badge variant={appointment.status === "Completed" ? "secondary" : appointment.status === "In Progress" ? "default" : "outline"}>
+                        {appointment.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

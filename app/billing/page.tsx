@@ -1,220 +1,286 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { CreditCard, Plus, Receipt, Clock, X, Check, Search, Camera } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { BarcodeScanner } from '@/components/BarcodeScanner';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Search, Loader2, CreditCard, Receipt } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-interface Invoice {
-  id: string;
-  patientName: string;
-  amount: number;
-  status: 'paid' | 'pending';
-  date: string;
-}
+export default function BillingView() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [patient, setPatient] = useState<any>(null);
+  const [dues, setDues] = useState<any[]>([]);
+  const [payAmount, setPayAmount] = useState<Record<string, string>>({});
 
-export default function BillingPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: 'INV-1001', patientName: 'John Doe', amount: 4500, status: 'paid', date: '2026-05-12' },
-    { id: 'INV-1002', patientName: 'Mary Smith', amount: 12000, status: 'pending', date: '2026-05-13' }
-  ]);
-  const [showForm, setShowForm] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [formData, setFormData] = useState({ patientName: '', amount: '', status: 'pending' as const, date: '' });
+  const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
+  
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedLab, setSelectedLab] = useState<any>(null);
+  const [currentPayAmount, setCurrentPayAmount] = useState("");
 
-  const handleAddInvoice = (e: React.FormEvent) => {
-    e.preventDefault();
-    if(formData.patientName && formData.amount) {
-      const newInvoice: Invoice = {
-        id: 'INV-' + Math.floor(Math.random() * 9000 + 1000),
-        patientName: formData.patientName,
-        amount: Number(formData.amount),
-        status: formData.status,
-        date: formData.date || new Date().toISOString().split('T')[0]
-      };
-      setInvoices([newInvoice, ...invoices]);
-      setShowForm(false);
-      setFormData({ patientName: '', amount: '', status: 'pending', date: '' });
+  useEffect(() => {
+    // Load local storage payments (stored as object { labId: numberPaid })
+    const paidStorage = localStorage.getItem('diag_paid_labs');
+    if (paidStorage) {
+      setPaidLabs(JSON.parse(paidStorage));
     }
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery) return;
+    
+    setLoading(true);
+    setPatient(null);
+    setDues([]);
+    
+    // Find patient by ID
+    const { data: patientData, error: patientError } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('patient_id', searchQuery)
+      .single();
+      
+    if (patientData) {
+       setPatient(patientData);
+       // Fetch unpaid tests (assuming using localstorage testCatalog for prices if not in DB)
+       const { data: labsData } = await supabase
+         .from('diagnostics_labs')
+         .select('*, doctors(*)')
+         .eq('patient_id', patientData.id)
+         .order('created_at', { ascending: false });
+
+       if (labsData) {
+         const storedCatalog = localStorage.getItem('diag_catalog');
+         const catalog = storedCatalog ? JSON.parse(storedCatalog) : [];
+         
+         const labsWithPrices = labsData.map(lab => {
+            const test = catalog.find((t: any) => t.name === lab.test_name);
+            const price = test ? test.price : 50; // Default price
+            
+            // Check paid amount from localstorage (simple tracker)
+            let paidAmount = 0;
+            if (paidLabs[lab.id] === true) {
+               paidAmount = price; // Old format (boolean) mapping to full price
+            } else {
+               paidAmount = Number(paidLabs[lab.id]) || 0;
+            }
+            const remainingDue = price - paidAmount;
+            const isFullyPaid = remainingDue <= 0;
+            
+            return {
+               ...lab,
+               total_price: price,
+               paid_amount: paidAmount,
+               remaining_due: remainingDue,
+               is_paid: isFullyPaid
+            };
+         });
+         
+         setDues(labsWithPrices);
+       }
+    } else {
+       alert("Patient not found. Check Patient ID.");
+    }
+    
+    setLoading(false);
   };
 
-  const markPaid = (id: string) => {
-    setInvoices(invoices.map(inv => inv.id === id ? { ...inv, status: 'paid' } : inv));
+  const processPayment = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!selectedLab || !currentPayAmount) return;
+     
+     const amountToAdd = parseFloat(currentPayAmount) || 0;
+     if (amountToAdd <= 0) return;
+     
+     const currentVal = paidLabs[selectedLab.id];
+     const currentPaid = currentVal === true ? selectedLab.total_price : (Number(currentVal) || 0);
+     const newTotalPaid = currentPaid + amountToAdd;
+     
+     const newPaid = { ...paidLabs, [selectedLab.id]: newTotalPaid };
+     setPaidLabs(newPaid);
+     localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
+     
+     // Update current local state
+     setDues(dues.map(d => {
+        if (d.id === selectedLab.id) {
+           const remDue = Math.max(0, d.total_price - newTotalPaid);
+           return { ...d, paid_amount: newTotalPaid, remaining_due: remDue, is_paid: remDue <= 0 };
+        }
+        return d;
+     }));
+     
+     setPaymentDialogOpen(false);
+     setSelectedLab(null);
+     setCurrentPayAmount("");
+     alert("Payment successful!");
   };
-
-  const totalRevenue = invoices.filter(inv => inv.status === 'paid').reduce((acc, inv) => acc + inv.amount, 0);
-  const pendingDues = invoices.filter(inv => inv.status === 'pending').reduce((acc, inv) => acc + inv.amount, 0);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto min-h-screen relative">
-      <header className="mb-12 flex justify-between items-end">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <CreditCard size={28} className="text-primary" />
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight text-shadow-sm uppercase italic">Billing & Payments</h1>
-          </div>
-          <p className="text-slate-500 font-medium">Manage invoices, insurance claims, and hospital accounts</p>
-        </div>
-        <button 
-          onClick={() => setShowForm(true)}
-          className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
-        >
-          <Plus size={20} />
-          <span>New Invoice</span>
-        </button>
-      </header>
-
-      {showScanner && (
-        <BarcodeScanner 
-          onResult={(result) => {
-            setFormData({...formData, patientName: result});
-            setShowScanner(false);
-          }} 
-          onClose={() => setShowScanner(false)} 
-        />
-      )}
-
-      {showForm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-            <button 
-              onClick={() => setShowForm(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">Create Invoice</h2>
-            <form onSubmit={handleAddInvoice} className="space-y-4">
-               <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Patient ID / Scan Barcode</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="text" required
-                    className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    value={formData.patientName} onChange={e => setFormData({...formData, patientName: e.target.value})}
-                    placeholder="Scan barcode or type Patient ID/Name"
-                    autoFocus
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowScanner(true)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary hover:text-primary/80 transition-colors p-1"
-                  >
-                    <Camera size={20} />
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Amount (₹)</label>
-                <input 
-                  type="number" required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Status</label>
-                <select 
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as 'paid' | 'pending'})}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Date</label>
-                <input 
-                  type="date"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})}
-                />
-              </div>
-              <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl mt-4 hover:bg-slate-800 transition-colors">
-                Generate Invoice
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm border-l-4 border-l-blue-500">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Revenue</p>
-          <p className="text-3xl font-black text-slate-800 tracking-tighter">₹{totalRevenue.toLocaleString()}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Pending Dues</p>
-          <p className="text-3xl font-black text-slate-800 tracking-tighter">₹{pendingDues.toLocaleString()}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm border-l-4 border-l-emerald-500">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Invoices</p>
-          <p className="text-3xl font-black text-slate-800 tracking-tighter">{invoices.length}</p>
-        </div>
+    <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Billing & Dues</h1>
+        <p className="text-muted-foreground">
+          Manage patient test bills and collect due payments.
+        </p>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h2 className="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-            <Receipt size={18} className="text-slate-400" />
-            Recent Invoices
-          </h2>
-        </div>
-        {invoices.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100">
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Invoice ID</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Patient</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Amount (₹)</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 italic transition-all">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/50 group transition-colors">
-                    <td className="px-8 py-5 font-mono text-xs font-bold text-slate-600">{inv.id}</td>
-                    <td className="px-8 py-5 font-bold text-slate-800">{inv.patientName}</td>
-                    <td className="px-8 py-5 text-sm text-slate-500 font-medium">{inv.date}</td>
-                    <td className="px-8 py-5 font-black tracking-tighter">₹{inv.amount.toLocaleString()}</td>
-                    <td className="px-8 py-5">
-                      <div className={cn(
-                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest w-fit border",
-                        inv.status === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'
-                      )}>
-                        {inv.status}
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      {inv.status === 'pending' && (
-                        <button 
-                          onClick={() => markPaid(inv.id)}
-                          className="bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 justify-end ml-auto"
-                        >
-                          <Check size={14} /> Mark Paid
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-12 text-center text-slate-300">
-            <div className="flex flex-col items-center gap-4">
-               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
-                  <Clock size={32} />
+      <Card>
+        <CardHeader>
+           <CardTitle>Find Patient Bills</CardTitle>
+           <CardDescription>Enter Patient ID (e.g., PT-1234) to view their billing history and clear dues.</CardDescription>
+        </CardHeader>
+        <CardContent>
+           <form onSubmit={handleSearch} className="flex gap-4 items-end max-w-md">
+              <div className="grid gap-2 flex-1">
+                 <Label>Patient ID</Label>
+                 <Input 
+                   value={searchQuery} 
+                   onChange={e => setSearchQuery(e.target.value)} 
+                   placeholder="e.g. PT-1234" 
+                   required
+                 />
+              </div>
+              <Button type="submit" disabled={loading}>
+                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                 Search
+              </Button>
+           </form>
+        </CardContent>
+      </Card>
+
+      {patient && (
+         <Card>
+            <CardHeader className="border-b bg-muted/20 pb-4 mb-4">
+               <div className="flex justify-between items-start">
+                 <div>
+                    <CardTitle className="text-xl">{patient.full_name}</CardTitle>
+                    <CardDescription>ID: {patient.patient_id} | Phone: {patient.phone}</CardDescription>
+                 </div>
+                 <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Total Dues</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      ${dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
+                    </div>
+                 </div>
                </div>
-               <p className="font-bold text-slate-400">Bill records will appear here after patients are discharged.</p>
-            </div>
-          </div>
-        )}
-      </div>
+            </CardHeader>
+            <CardContent>
+               <Table>
+                 <TableHeader>
+                   <TableRow>
+                     <TableHead>Test Date</TableHead>
+                     <TableHead>Test Name</TableHead>
+                     <TableHead>Total Cost</TableHead>
+                     <TableHead>Paid</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead className="text-right">Action</TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {dues.length === 0 ? (
+                     <TableRow>
+                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No diagnostics found for this patient.</TableCell>
+                     </TableRow>
+                   ) : (
+                     dues.map(d => (
+                       <TableRow key={d.id}>
+                         <TableCell>{d.test_date}</TableCell>
+                         <TableCell className="font-medium">{d.test_name}</TableCell>
+                         <TableCell className="font-bold">${d.total_price}</TableCell>
+                         <TableCell className="text-green-600 font-medium">${d.paid_amount || 0}</TableCell>
+                         <TableCell>
+                            {d.is_paid ? (
+                               <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Paid full</Badge>
+                            ) : (
+                               <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ${d.remaining_due}</Badge>
+                            )}
+                         </TableCell>
+                         <TableCell className="text-right">
+                            {!d.is_paid ? (
+                               <Button size="sm" onClick={() => { setSelectedLab(d); setCurrentPayAmount(d.remaining_due.toString()); setPaymentDialogOpen(true); }} className="bg-green-600 hover:bg-green-700">
+                                 <CreditCard className="h-4 w-4 mr-2" />
+                                 Pay
+                               </Button>
+                            ) : (
+                               <Button variant="ghost" size="sm" onClick={() => window.open(`/diagnostics/receipt/${d.id}`, '_blank')}>
+                                 <Receipt className="h-4 w-4 mr-2 text-green-600" />
+                                 Receipt
+                               </Button>
+                            )}
+                         </TableCell>
+                       </TableRow>
+                     ))
+                   )}
+                 </TableBody>
+               </Table>
+            </CardContent>
+         </Card>
+      )}
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+         <DialogContent>
+            <DialogHeader>
+               <DialogTitle>Make a Payment</DialogTitle>
+               <DialogDescription>
+                  Enter the amount the patient is paying for {selectedLab?.test_name}.
+               </DialogDescription>
+            </DialogHeader>
+            {selectedLab && (
+               <form onSubmit={processPayment} className="grid gap-4 py-4">
+                  <div className="flex justify-between pb-4 border-b">
+                     <span className="text-muted-foreground">Total Cost:</span>
+                     <span className="font-medium">${selectedLab.total_price}</span>
+                  </div>
+                  <div className="flex justify-between pb-4 border-b">
+                     <span className="text-muted-foreground">Already Paid:</span>
+                     <span className="font-medium text-green-600">${selectedLab.paid_amount || 0}</span>
+                  </div>
+                  <div className="flex justify-between pb-4 border-b">
+                     <span className="text-muted-foreground font-semibold">Remaining Due:</span>
+                     <span className="font-bold text-red-600">${selectedLab.remaining_due}</span>
+                  </div>
+                  <div className="grid gap-2 pt-4">
+                     <Label>Payment Amount ($)</Label>
+                     <Input 
+                        type="number" 
+                        min="1" 
+                        max={selectedLab.remaining_due} 
+                        step="0.01"
+                        value={currentPayAmount}
+                        onChange={(e) => setCurrentPayAmount(e.target.value)}
+                        required
+                     />
+                  </div>
+                  <div className="flex justify-end pt-4 gap-2">
+                     <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
+                     <Button type="submit">Confirm Payment</Button>
+                  </div>
+               </form>
+            )}
+         </DialogContent>
+      </Dialog>
     </div>
   );
 }
