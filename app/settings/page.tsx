@@ -64,12 +64,21 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 max-w-4xl mx-auto">
-      <header className="mb-12">
-        <div className="flex items-center gap-3 mb-2">
-          <SettingsIcon size={24} className="text-primary" />
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Settings</h1>
+      <header className="mb-12 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <SettingsIcon size={24} className="text-primary" />
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Settings</h1>
+          </div>
+          <p className="text-slate-500">Configure global hospital parameters and preferences</p>
         </div>
-        <p className="text-slate-500">Configure global hospital parameters and preferences</p>
+        <button 
+            onClick={handleSave}
+            disabled={loading}
+            className="bg-primary text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? "Saving..." : <><Save size={20} /> Save Changes</>}
+          </button>
       </header>
 
       <div className="space-y-8">

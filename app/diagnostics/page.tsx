@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FlaskConical, Search, Plus, TestTube2, Microscope, Dna, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FlaskConical, Search, Plus, TestTube2, Microscope, Dna, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LabTest {
@@ -10,6 +10,7 @@ interface LabTest {
   test_name: string;
   category: string;
   status: 'pending' | 'completed';
+  amount: number;
   date: string;
 }
 
@@ -18,9 +19,12 @@ export default function DiagnosticsPage() {
   const [search, setSearch] = useState('');
   
   const [tests, setTests] = useState<LabTest[]>([
-    { id: 'LAB-9001', patient_id: 'P-1002', test_name: 'Complete Blood Count', category: 'Blood Tests', status: 'completed', date: '2026-05-12' },
-    { id: 'LAB-9002', patient_id: 'P-1005', test_name: 'Chest X-Ray', category: 'Radiology', status: 'pending', date: '2026-05-13' }
+    { id: 'LAB-9001', patient_id: 'P-1002', test_name: 'Complete Blood Count', category: 'Blood Tests', status: 'completed', amount: 500, date: '2026-05-12' },
+    { id: 'LAB-9002', patient_id: 'P-1005', test_name: 'Chest X-Ray', category: 'Radiology', status: 'pending', amount: 1500, date: '2026-05-13' }
   ]);
+
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({ patient_id: '', test_name: '', category: 'Blood Tests', amount: '' });
 
   const categories = [
     { name: 'Blood Tests', icon: TestTube2, count: tests.filter(t => t.category === 'Blood Tests').length },
@@ -28,16 +32,22 @@ export default function DiagnosticsPage() {
     { name: 'Genetic', icon: Dna, count: tests.filter(t => t.category === 'Genetic').length },
   ];
 
-  const handleAddTest = () => {
-    const newTest: LabTest = {
-      id: 'LAB-' + Math.floor(Math.random() * 9000 + 1000),
-      patient_id: 'P-' + Math.floor(Math.random() * 9000 + 1000),
-      test_name: 'Metabolic Panel',
-      category: 'Blood Tests',
-      status: 'pending',
-      date: new Date().toISOString().split('T')[0]
-    };
-    setTests([newTest, ...tests]);
+  const handleAddTest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.test_name && formData.patient_id) {
+      const newTest: LabTest = {
+        id: 'LAB-' + Math.floor(Math.random() * 9000 + 1000),
+        patient_id: formData.patient_id,
+        test_name: formData.test_name,
+        category: formData.category,
+        status: 'pending',
+        amount: Number(formData.amount),
+        date: new Date().toISOString().split('T')[0]
+      };
+      setTests([newTest, ...tests]);
+      setShowForm(false);
+      setFormData({ patient_id: '', test_name: '', category: 'Blood Tests', amount: '' });
+    }
   };
 
   const filteredTests = tests.filter(t => {
@@ -64,6 +74,68 @@ export default function DiagnosticsPage() {
           <span>New Lab Test</span>
         </button>
       </header>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <button 
+              onClick={() => setShowForm(false)}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"
+            >
+              <X size={24} />
+            </button>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">New Lab Test</h2>
+            <form onSubmit={handleAddTest} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">Patient ID / Scan Barcode</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    type="text" required
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.patient_id} onChange={e => setFormData({...formData, patient_id: e.target.value})}
+                    placeholder="Scan barcode or type ID"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">Test Name</label>
+                <input 
+                  type="text" required
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  value={formData.test_name} onChange={e => setFormData({...formData, test_name: e.target.value})}
+                  placeholder="e.g. Complete Blood Count"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">Category</label>
+                  <select 
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}
+                  >
+                    <option value="Blood Tests">Blood Tests</option>
+                    <option value="Radiology">Radiology</option>
+                    <option value="Genetic">Genetic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">Fees (₹)</label>
+                  <input 
+                    type="number" required
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})}
+                  />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl mt-4 hover:bg-slate-800 transition-colors">
+                Save & Generate Invoice
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-4">
@@ -118,6 +190,7 @@ export default function DiagnosticsPage() {
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Patient ID</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Test Name</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Fees (₹)</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                       </tr>
                     </thead>
@@ -130,6 +203,7 @@ export default function DiagnosticsPage() {
                           <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">{test.patient_id}</td>
                           <td className="px-6 py-4 font-bold text-slate-800">{test.test_name}</td>
                           <td className="px-6 py-4 text-sm text-slate-500 font-medium">{test.date}</td>
+                          <td className="px-6 py-4 font-black tracking-tighter text-slate-700">₹{test.amount}</td>
                           <td className="px-6 py-4">
                             <div className={cn(
                               "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 w-fit border",

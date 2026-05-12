@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -164,6 +165,18 @@ export default function AppointmentsPage() {
             </button>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">New Appointment</h2>
             <form onSubmit={handleAddAppointment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">Patient ID / Scan Barcode</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    type="text" required
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="Scan barcode or type Patient ID"
+                    autoFocus
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-600 mb-1">First Name</label>
@@ -182,6 +195,16 @@ export default function AppointmentsPage() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">Doctor / Specialist</label>
+                <select 
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option>Dr. Sarah Jenkins (Cardiology)</option>
+                  <option>Dr. Michael Chen (Neurology)</option>
+                  <option>Dr. Emily Patel (General Physician)</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-600 mb-1">Date</label>
@@ -199,6 +222,13 @@ export default function AppointmentsPage() {
                     value={formData.appointment_time} onChange={e => setFormData({...formData, appointment_time: e.target.value})}
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">Discount (%)</label>
+                <input 
+                  type="number" min="0" max="100" defaultValue="0"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
               </div>
               <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl mt-4 hover:bg-slate-800 transition-colors">
                 Book Appointment
@@ -270,13 +300,22 @@ export default function AppointmentsPage() {
                       </div>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => setAppointments(appointments.filter(a => a.id !== appt.id))}
-                        className="text-rose-300 hover:text-rose-600 transition-colors p-2 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200"
-                        title="Delete Appointment"
-                      >
-                        <X size={20} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => alert("Generating Prescription...")}
+                          className="text-primary hover:text-primary/80 transition-colors p-2 hover:bg-primary/10 rounded-lg flex items-center gap-1 text-xs font-bold"
+                          title="Generate Prescription"
+                        >
+                          <FileText size={16} /> Prescription
+                        </button>
+                        <button 
+                          onClick={() => setAppointments(appointments.filter(a => a.id !== appt.id))}
+                          className="text-rose-300 hover:text-rose-600 transition-colors p-2 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200"
+                          title="Delete Appointment"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CreditCard, Plus, Receipt, Clock, X, Check } from 'lucide-react';
+import { CreditCard, Plus, Receipt, Clock, X, Check, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Invoice {
@@ -74,12 +74,17 @@ export default function BillingPage() {
             <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">Create Invoice</h2>
             <form onSubmit={handleAddInvoice} className="space-y-4">
                <div>
-                <label className="block text-sm font-bold text-slate-600 mb-1">Patient Name</label>
-                <input 
-                  type="text" required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={formData.patientName} onChange={e => setFormData({...formData, patientName: e.target.value})}
-                />
+                <label className="block text-sm font-bold text-slate-600 mb-1">Patient ID / Scan Barcode</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    type="text" required
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.patientName} onChange={e => setFormData({...formData, patientName: e.target.value})}
+                    placeholder="Scan barcode or type Patient ID/Name"
+                    autoFocus
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-600 mb-1">Amount (₹)</label>
