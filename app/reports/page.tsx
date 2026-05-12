@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, Users, DollarSign, CalendarCheck, TrendingUp, Download } from "lucide-react";
+import { Activity, Users, DollarSign, CalendarCheck, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,14 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
 
 export default function ReportsView() {
   const [stats, setStats] = useState({
@@ -104,81 +96,6 @@ export default function ReportsView() {
     };
   }, []);
 
-  const exportFinancialReport = () => {
-    const doc = new jsPDF();
-    
-    // Hospital Info
-    doc.setFontSize(22);
-    doc.setTextColor(40, 40, 40);
-    doc.text("MedCore Hospital", 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("123 Health Ave, Medical City", 14, 28);
-    doc.text("Phone: (555) 123-4567 | Email: info@medcore.com", 14, 33);
-    
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text("Financial & Revenue Report", 14, 48);
-    
-    const tableData = dailyDoctorStats.map(stat => [
-      stat.date,
-      stat.doctorName,
-      stat.count.toString(),
-      `$${stat.totalFees.toFixed(2)}`
-    ]);
-
-    autoTable(doc, {
-      startY: 53,
-      head: [['Date', 'Doctor Name', 'Appointments', 'Total Fees']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185] },
-    });
-    
-    doc.save("MedCore_Financial_Report.pdf");
-  };
-
-  const exportPatientReport = async () => {
-    const { data } = await supabase.from('patients').select('*').order('created_at', { ascending: false });
-    if (!data) return;
-
-    const doc = new jsPDF();
-    
-    // Hospital Info
-    doc.setFontSize(22);
-    doc.setTextColor(40, 40, 40);
-    doc.text("MedCore Hospital", 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("123 Health Ave, Medical City", 14, 28);
-    doc.text("Phone: (555) 123-4567 | Email: info@medcore.com", 14, 33);
-    
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text("Patient Demographics Report", 14, 48);
-
-    const tableData = data.map(p => [
-      p.patient_id,
-      p.full_name,
-      p.age?.toString() || 'N/A',
-      p.gender || 'N/A',
-      p.phone || 'N/A',
-      new Date(p.created_at).toLocaleDateString()
-    ]);
-
-    autoTable(doc, {
-      startY: 53,
-      head: [['Patient ID', 'Name', 'Age', 'Gender', 'Phone', 'Registered On']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185] },
-    });
-    
-    doc.save("MedCore_Patient_Report.pdf");
-  };
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -189,22 +106,7 @@ export default function ReportsView() {
           </p>
         </div>
         <div className="flex gap-2">
-           <DropdownMenu>
-             <DropdownMenuTrigger asChild>
-               <Button variant="outline">
-                 <Download className="mr-2 h-4 w-4" />
-                 Download PDF Reports
-               </Button>
-             </DropdownMenuTrigger>
-             <DropdownMenuContent align="end">
-               <DropdownMenuItem onClick={exportFinancialReport}>
-                 Financial & Revenue Report
-               </DropdownMenuItem>
-               <DropdownMenuItem onClick={exportPatientReport}>
-                 Patient Demographics Report
-               </DropdownMenuItem>
-             </DropdownMenuContent>
-           </DropdownMenu>
+           <Button variant="outline">Export Full Report</Button>
            <Button>Generate Tax Statement</Button>
         </div>
       </div>
@@ -313,21 +215,21 @@ export default function ReportsView() {
                <div className="flex items-center">
                  <div className="ml-4 space-y-1">
                    <p className="text-sm font-medium leading-none">Emily R.</p>
-                   <p className="text-sm text-muted-foreground">&quot;Dr. Smith was amazing. Very detailed!&quot;</p>
+                   <p className="text-sm text-muted-foreground">"Dr. Smith was amazing. Very detailed!"</p>
                  </div>
                  <div className="ml-auto font-medium text-amber-500">★★★★★</div>
                </div>
                <div className="flex items-center">
                  <div className="ml-4 space-y-1">
                    <p className="text-sm font-medium leading-none">Michael B.</p>
-                   <p className="text-sm text-muted-foreground">&quot;Wait times were a bit long today.&quot;</p>
+                   <p className="text-sm text-muted-foreground">"Wait times were a bit long today."</p>
                  </div>
                  <div className="ml-auto font-medium text-amber-500">★★★☆☆</div>
                </div>
                <div className="flex items-center">
                  <div className="ml-4 space-y-1">
                    <p className="text-sm font-medium leading-none">Sarah L.</p>
-                   <p className="text-sm text-muted-foreground">&quot;Prescription process was seamless.&quot;</p>
+                   <p className="text-sm text-muted-foreground">"Prescription process was seamless."</p>
                  </div>
                  <div className="ml-auto font-medium text-amber-500">★★★★★</div>
                </div>
