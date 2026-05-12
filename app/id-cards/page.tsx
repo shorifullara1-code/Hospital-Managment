@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { 
   Search, 
   IdCard, 
@@ -24,6 +23,11 @@ interface Patient {
   blood_group?: string;
 }
 
+const mockPatients: Patient[] = [
+  { id: '1', patient_id: 'P-1002', family_name: 'Doe', given_name: 'John', gender: 'Male', birth_date: '1990-05-15', blood_group: 'O+' },
+  { id: '2', patient_id: 'P-1005', family_name: 'Smith', given_name: 'Mary', gender: 'Female', birth_date: '1985-11-20', blood_group: 'A-' }
+];
+
 export default function IDCardsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,22 +39,26 @@ export default function IDCardsPage() {
     fetchHospitalName();
   }, []);
 
-  const fetchHospitalName = async () => {
-    const { data } = await supabase.from('hospital_settings').select('name').single();
-    if (data?.name) setHospitalName(data.name);
+  const fetchHospitalName = () => {
+    const stored = localStorage.getItem('hospitalSettings');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.name) setHospitalName(parsed.name);
+    }
   };
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!search.trim()) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('patients')
-      .select('*')
-      .or(`given_name.ilike.%${search}%,family_name.ilike.%${search}%,patient_id.ilike.%${search}%`)
-      .limit(10);
-    
-    if (data) setPatients(data);
-    setLoading(false);
+    setTimeout(() => {
+      const results = mockPatients.filter(p => 
+        p.given_name.toLowerCase().includes(search.toLowerCase()) || 
+        p.family_name.toLowerCase().includes(search.toLowerCase()) || 
+        p.patient_id.toLowerCase().includes(search.toLowerCase())
+      );
+      setPatients(results);
+      setLoading(false);
+    }, 500);
   };
 
   return (

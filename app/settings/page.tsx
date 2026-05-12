@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Save, 
   Building, 
@@ -11,13 +10,17 @@ import {
   Settings as SettingsIcon,
   Shield,
   Activity,
-  CheckCircle2
+  CheckCircle2,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Image from 'next/image';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [settings, setSettings] = useState({
     name: "MedCore Hospital",
@@ -26,35 +29,37 @@ export default function SettingsPage() {
     address: "123 Health Ave, Medical City",
     dark_mode: false,
     compact_view: false,
-    two_factor_auth: true
+    two_factor_auth: true,
+    logo_url: ""
   });
 
   useEffect(() => {
-    fetchSettings();
+    // Mock fetch settings
+    const stored = localStorage.getItem('hospitalSettings');
+    if (stored) {
+      setSettings(JSON.parse(stored));
+    }
   }, []);
 
-  const fetchSettings = async () => {
-    const { data } = await supabase
-      .from('hospital_settings')
-      .select('*')
-      .single();
-    
-    if (data) {
-      setSettings(prev => ({ ...prev, ...data }));
-    }
+  const handleSave = () => {
+    setLoading(true);
+    setTimeout(() => {
+      localStorage.setItem('hospitalSettings', JSON.stringify(settings));
+      setSuccess(true);
+      setLoading(false);
+      setTimeout(() => setSuccess(false), 3000);
+    }, 800);
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    const { error } = await supabase
-      .from('hospital_settings')
-      .upsert({ id: 1, ...settings });
-    
-    if (!error) {
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSettings(prev => ({ ...prev, logo_url: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
     }
-    setLoading(false);
   };
 
   return (
@@ -90,6 +95,33 @@ export default function SettingsPage() {
           </div>
           
           <div className="p-8 space-y-6">
+            <div className="mb-8">
+              <label className="text-sm font-bold text-slate-600 block mb-3">Hospital Logo</label>
+              <div className="flex items-center gap-6">
+                <div className="w-24 h-24 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative group">
+                  {settings.logo_url ? (
+                    <Image src={settings.logo_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <ImageIcon size={32} className="text-slate-400" />
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Upload size={24} className="text-white" />
+                  </div>
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" ref={fileInputRef} onChange={handleLogoUpload} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800 mb-1">Upload New Logo</p>
+                  <p className="text-xs text-slate-500 mb-3">Square image, max 2MB (PNG, JPG)</p>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                  >
+                    Choose File
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-600">Hospital Name</label>

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { 
   ClipboardList, 
   Plus, 
@@ -12,7 +11,8 @@ import {
   MoreVertical,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +34,15 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    given_name: '',
+    family_name: '',
+    appointment_date: '',
+    appointment_time: '',
+    status: 'scheduled' as const,
+  });
 
   useEffect(() => {
     fetchAppointments();
@@ -41,13 +50,49 @@ export default function AppointmentsPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('appointments')
-      .select('*, patients(given_name, family_name)')
-      .order('appointment_date', { ascending: true });
+    setTimeout(() => {
+      const mockData: Appointment[] = [
+        {
+          id: '1',
+          patient_id: 'P-1002',
+          doctor_id: 'D-001',
+          appointment_date: '2026-05-13',
+          appointment_time: '10:00 AM',
+          status: 'scheduled',
+          patients: { given_name: 'John', family_name: 'Doe' }
+        },
+        {
+          id: '2',
+          patient_id: 'P-1005',
+          doctor_id: 'D-002',
+          appointment_date: '2026-05-13',
+          appointment_time: '11:30 AM',
+          status: 'completed',
+          patients: { given_name: 'Mary', family_name: 'Smith' }
+        }
+      ];
+      setAppointments(mockData);
+      setLoading(false);
+    }, 500);
+  };
 
-    if (data) setAppointments(data);
-    setLoading(false);
+  const handleAddAppointment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newAppointment: Appointment = {
+      id: Math.random().toString(36).substr(2, 9),
+      patient_id: 'P-' + Math.floor(Math.random() * 9000 + 1000),
+      doctor_id: 'D-001',
+      appointment_date: formData.appointment_date,
+      appointment_time: formData.appointment_time,
+      status: formData.status,
+      patients: {
+        given_name: formData.given_name,
+        family_name: formData.family_name
+      }
+    };
+    setAppointments([newAppointment, ...appointments]);
+    setShowForm(false);
+    setFormData({ given_name: '', family_name: '', appointment_date: '', appointment_time: '', status: 'scheduled' });
   };
 
   const getStatusColor = (status: string) => {
@@ -68,8 +113,13 @@ export default function AppointmentsPage() {
     }
   };
 
+  const filteredAppointments = appointments.filter(appt => 
+    appt.patients?.given_name.toLowerCase().includes(search.toLowerCase()) || 
+    appt.patients?.family_name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="p-8 max-w-7xl mx-auto min-h-screen">
+    <div className="p-8 max-w-7xl mx-auto min-h-screen relative">
       <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -93,12 +143,70 @@ export default function AppointmentsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className="bg-primary text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95">
+          <button 
+            onClick={() => setShowForm(true)}
+            className="bg-primary text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95"
+          >
             <Plus size={20} />
             <span>New Appointment</span>
           </button>
         </div>
       </header>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <button 
+              onClick={() => setShowForm(false)}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"
+            >
+              <X size={24} />
+            </button>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase mb-6">New Appointment</h2>
+            <form onSubmit={handleAddAppointment} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">First Name</label>
+                  <input 
+                    type="text" required
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.given_name} onChange={e => setFormData({...formData, given_name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">Last Name</label>
+                  <input 
+                    type="text" required
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.family_name} onChange={e => setFormData({...formData, family_name: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">Date</label>
+                  <input 
+                    type="date" required
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">Time</label>
+                  <input 
+                    type="time" required
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={formData.appointment_time} onChange={e => setFormData({...formData, appointment_time: e.target.value})}
+                  />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl mt-4 hover:bg-slate-800 transition-colors">
+                Book Appointment
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
         {loading ? (
@@ -106,7 +214,7 @@ export default function AppointmentsPage() {
             <div className="w-12 h-12 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
             <p className="text-slate-400 font-bold animate-pulse">Loading schedule...</p>
           </div>
-        ) : appointments.length > 0 ? (
+        ) : filteredAppointments.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -119,7 +227,7 @@ export default function AppointmentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 italic transition-all">
-                {appointments.map((appt) => (
+                {filteredAppointments.map((appt) => (
                   <tr key={appt.id} className="hover:bg-slate-50/50 group transition-colors">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
@@ -162,8 +270,12 @@ export default function AppointmentsPage() {
                       </div>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button className="text-slate-300 hover:text-slate-600 transition-colors p-2 hover:bg-white rounded-lg border border-transparent hover:border-slate-200">
-                        <MoreVertical size={20} />
+                      <button 
+                        onClick={() => setAppointments(appointments.filter(a => a.id !== appt.id))}
+                        className="text-rose-300 hover:text-rose-600 transition-colors p-2 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200"
+                        title="Delete Appointment"
+                      >
+                        <X size={20} />
                       </button>
                     </td>
                   </tr>
@@ -180,7 +292,9 @@ export default function AppointmentsPage() {
               <p className="text-xl font-black text-slate-800 uppercase tracking-tight">No appointments found</p>
               <p className="text-slate-400 font-medium italic">Schedule your first patient consultation today.</p>
             </div>
-            <button className="mt-4 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all flex items-center gap-3">
+            <button 
+              onClick={() => setShowForm(true)}
+              className="mt-4 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all flex items-center gap-3">
               <Plus size={20} />
               CREATE APPOINTMENT
             </button>
