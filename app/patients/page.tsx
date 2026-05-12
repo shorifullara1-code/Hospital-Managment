@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
@@ -400,8 +401,11 @@ export default function PatientsView() {
                       {patient.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     <Button variant="ghost" size="sm" onClick={() => handleViewHistory(patient)}>History</Button>
+                    <Link href={`/id-cards?query=${patient.patient_id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                      ID Card
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}
