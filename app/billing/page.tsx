@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, CreditCard, Receipt } from "lucide-react";
+import { Search, Loader2, CreditCard, Receipt, ScanBarcode } from "lucide-react";
+import { Scanner } from "@yudiel/react-qr-scanner";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export default function BillingView() {
   const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
   
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [selectedLab, setSelectedLab] = useState<any>(null);
   const [currentPayAmount, setCurrentPayAmount] = useState("");
 
@@ -46,9 +48,8 @@ export default function BillingView() {
     }
   }, []);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery) return;
+  const performSearch = async (query: string) => {
+    if (!query) return;
     
     setLoading(true);
     setPatient(null);
@@ -58,7 +59,7 @@ export default function BillingView() {
     const { data: patientData, error: patientError } = await supabase
       .from('patients')
       .select('*')
-      .eq('patient_id', searchQuery)
+      .eq('patient_id', query)
       .single();
       
     if (patientData) {
@@ -106,6 +107,20 @@ export default function BillingView() {
     setLoading(false);
   };
 
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    performSearch(searchQuery);
+  };
+
+  const handleScan = (detectedCodes: any[]) => {
+    if (detectedCodes && detectedCodes.length > 0) {
+      const code = detectedCodes[0].rawValue;
+      setSearchQuery(code);
+      setScannerOpen(false);
+      performSearch(code);
+    }
+  };
+
   const processPayment = (e: React.FormEvent) => {
      e.preventDefault();
      if (!selectedLab || !currentPayAmount) return;
@@ -148,18 +163,23 @@ export default function BillingView() {
       <Card>
         <CardHeader>
            <CardTitle>Find Patient Bills</CardTitle>
-           <CardDescription>Enter Patient ID (e.g., PT-1234) to view their billing history and clear dues.</CardDescription>
+           <CardDescription>Enter Patient ID (e.g., PT-1234) or scan their ID Card barcode.</CardDescription>
         </CardHeader>
         <CardContent>
-           <form onSubmit={handleSearch} className="flex gap-4 items-end max-w-md">
-              <div className="grid gap-2 flex-1">
-                 <Label>Patient ID</Label>
-                 <Input 
-                   value={searchQuery} 
-                   onChange={e => setSearchQuery(e.target.value)} 
-                   placeholder="e.g. PT-1234" 
-                   required
-                 />
+           <form onSubmit={handleSearch} className="flex gap-4 items-end max-w-lg">
+              <div className="flex gap-2 w-full items-end">
+                <div className="grid gap-2 flex-1">
+                   <Label>Patient ID</Label>
+                   <Input 
+                     value={searchQuery} 
+                     onChange={e => setSearchQuery(e.target.value)} 
+                     placeholder="e.g. PT-1234" 
+                     required
+                   />
+                </div>
+                <Button type="button" variant="outline" size="icon" onClick={() => setScannerOpen(true)}>
+                  <ScanBarcode className="h-5 w-5" />
+                </Button>
               </div>
               <Button type="submit" disabled={loading}>
                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
@@ -280,6 +300,26 @@ export default function BillingView() {
                </form>
             )}
          </DialogContent>
+      </Dialog>
+      
+      {/* Scanner Dialog */}
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Scan Patient ID</DialogTitle>
+            <DialogDescription>
+              Point your camera at the barcode on the patient ID card.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="w-full flex justify-center items-center overflow-hidden rounded-md bg-black">
+             {scannerOpen && (
+               <Scanner
+                  onScan={handleScan}
+                  formats={['code_128', 'qr_code']}
+               />
+             )}
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
