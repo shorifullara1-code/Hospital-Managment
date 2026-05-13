@@ -31,29 +31,50 @@ export default function DeathRegistryPage() {
   const [viewingCert, setViewingCert] = useState<any>(null);
   const [hospitalSettings, setHospitalSettings] = useState<any>({});
 
+  const fetchData = async () => {
+    setLoading(true);
+    const [patRes, docRes, certRes] = await Promise.all([
+      supabase.from('patients').select('*'),
+      supabase.from('doctors').select('*'),
+      supabase.from('death_certificates').select('*, doctor:doctors(*)')
+    ]);
+    
+    if (patRes.data) setPatients(patRes.data);
+    if (docRes.data) setDoctors(docRes.data);
+    
+    if (certRes.data) {
+      const certsMap: Record<string, any> = {};
+      certRes.data.forEach(cert => {
+         const date = new Date(cert.date_of_death);
+         certsMap[cert.patient_id] = {
+           id: cert.certificate_id,
+           patientId: cert.patient_id,
+           patientName: patRes.data?.find(p => p.id === cert.patient_id)?.full_name,
+           patientCode: patRes.data?.find(p => p.id === cert.patient_id)?.patient_id,
+           age: patRes.data?.find(p => p.id === cert.patient_id)?.age,
+           gender: patRes.data?.find(p => p.id === cert.patient_id)?.gender,
+           causeOfDeath: cert.cause_of_death,
+           dateOfDeath: date.toISOString().slice(0, 10),
+           timeOfDeath: date.toLocaleTimeString('en-US', { hour12: false }).slice(0,5),
+           place_of_death: cert.place_of_death,
+           attendingDoctor: cert.doctor_id,
+           remarks: cert.notes,
+           issuedAt: cert.created_at
+         };
+      });
+      setCertificates(certsMap);
+    }
+    
+    setLoading(false);
+  };
+
   useEffect(() => {
     fetchData();
-    const storedCerts = localStorage.getItem('death_certificates');
-    if (storedCerts) {
-      setCertificates(JSON.parse(storedCerts));
-    }
     const settings = localStorage.getItem('hospital_settings');
     if (settings) {
       setHospitalSettings(JSON.parse(settings));
     }
   }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    const [patRes, docRes] = await Promise.all([
-      supabase.from('patients').select('*'),
-      supabase.from('doctors').select('*')
-    ]);
-    
-    if (patRes.data) setPatients(patRes.data);
-    if (docRes.data) setDoctors(docRes.data);
-    setLoading(false);
-  };
 
   const handleScan = (detectedCodes: any[]) => {
     if (detectedCodes && detectedCodes.length > 0) {
@@ -77,6 +98,12 @@ export default function DeathRegistryPage() {
         setTimeOfDeath(existing.timeOfDeath);
         setAttendingDoctor(existing.attendingDoctor);
         setRemarks(existing.remarks);
+      } else {
+        setCauseOfDeath("");
+        setDateOfDeath(new Date().toISOString().slice(0, 10));
+        setTimeOfDeath(new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0,5));
+        setAttendingDoctor("");
+        setRemarks("");
       }
     } else {
       setSelectedPatient(null);
@@ -90,14 +117,41 @@ export default function DeathRegistryPage() {
     setProcessing(true);
 
     try {
+      // Create timestamp string
+      const fullDateStr = `${dateOfDeath}T${timeOfDeath}:00`;
+      const dateOfDeathObj = new Date(fullDateStr);
+
+      const certId = `DC-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const certEntry = {
+         certificate_id: certId,
+         patient_id: selectedPatient.id,
+         doctor_id: attendingDoctor || null,
+         date_of_death: dateOfDeathObj.toISOString(),
+         cause_of_death: causeOfDeath,
+         place_of_death: "MedCore Hospital",
+         notes: remarks
+      };
+
+      // Check if already exist
+      if (!certificates[selectedPatient.id]) {
+         const { error: certError } = await supabase.from('death_certificates').insert(certEntry);
+         if (certError) throw certError;
+      } else {
+         const { error: certError } = await supabase.from('death_certificates')
+             .update(certEntry)
+             .eq('patient_id', selectedPatient.id);
+         if (certError) throw certError;
+      }
+
       // Update patient status in DB
       const { error } = await supabase.from('patients').update({ status: 'Deceased' }).eq('id', selectedPatient.id);
       
       if (error) throw error;
 
-      // Save certificate details locally
+      // Save certificate details locally for UI update
       const certData = {
-        id: `DC-${Math.floor(100000 + Math.random() * 900000)}`,
+        id: certificates[selectedPatient.id]?.id || certId,
         patientId: selectedPatient.id,
         patientName: selectedPatient.full_name,
         patientCode: selectedPatient.patient_id,
@@ -113,7 +167,6 @@ export default function DeathRegistryPage() {
 
       const newCerts = { ...certificates, [selectedPatient.id]: certData };
       setCertificates(newCerts);
-      localStorage.setItem('death_certificates', JSON.stringify(newCerts));
 
       // Update local state
       setPatients(patients.map(p => p.id === selectedPatient.id ? { ...p, status: 'Deceased' } : p));

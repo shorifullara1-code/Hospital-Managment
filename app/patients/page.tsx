@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, UserPlus, Filter, Loader2, Calendar as CalendarIcon, History } from "lucide-react";
@@ -268,26 +268,15 @@ export default function PatientsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Patients</h1>
-          <p className="text-muted-foreground">
-            Manage patient records and clinical histories.
-          </p>
-        </div>
-        
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className={buttonVariants()}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add New Patient
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add Patient</DialogTitle>
-              <DialogDescription>
-                Enter the details of the new patient here. Click save when you're done.
-              </DialogDescription>
-            </DialogHeader>
+      {isOpen ? (
+        <Card className="max-w-4xl mx-auto w-full">
+          <CardHeader>
+            <CardTitle>Add New Patient</CardTitle>
+            <CardDescription>
+              Enter the details of the new patient here. Click save when you're done.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <form onSubmit={handleRegister}>
               <div className="grid gap-4 py-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -364,17 +353,219 @@ export default function PatientsView() {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-4 gap-2 border-t mt-4">
+                <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={registering}>
                   {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Save Patient
                 </Button>
               </div>
             </form>
-          </DialogContent>
-        </Dialog>
+          </CardContent>
+        </Card>
+      ) : editOpen ? (
+        <Card className="max-w-4xl mx-auto w-full">
+          <CardHeader>
+            <CardTitle>Edit Patient</CardTitle>
+            <CardDescription>
+              Update patient information.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdate}>
+              <div className="grid gap-4 py-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="edit-name">Full Name *</Label>
+                    <Input id="edit-name" required value={editFormData.full_name || ""} onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })} placeholder="John Doe" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-age">Age</Label>
+                    <Input id="edit-age" type="number" value={editFormData.age || ""} onChange={e => setEditFormData({ ...editFormData, age: parseInt(e.target.value) || undefined })} placeholder="30" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-dob">Date of Birth</Label>
+                    <Input id="edit-dob" type="date" value={editFormData.date_of_birth || ""} onChange={e => setEditFormData({ ...editFormData, date_of_birth: e.target.value })} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-gender">Gender</Label>
+                    <Select value={editFormData.gender || ""} onValueChange={(v) => setEditFormData({ ...editFormData, gender: v || "" })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-blood-group">Blood Group</Label>
+                    <Select value={editFormData.blood_group || ""} onValueChange={(v) => setEditFormData({ ...editFormData, blood_group: v || "" })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A+">A+</SelectItem>
+                        <SelectItem value="A-">A-</SelectItem>
+                        <SelectItem value="B+">B+</SelectItem>
+                        <SelectItem value="B-">B-</SelectItem>
+                        <SelectItem value="O+">O+</SelectItem>
+                        <SelectItem value="O-">O-</SelectItem>
+                        <SelectItem value="AB+">AB+</SelectItem>
+                        <SelectItem value="AB-">AB-</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-phone">Phone Number</Label>
+                    <Input id="edit-phone" value={editFormData.phone || ""} onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-email">Email</Label>
+                    <Input id="edit-email" type="email" value={editFormData.email || ""} onChange={e => setEditFormData({ ...editFormData, email: e.target.value })} placeholder="patient@example.com" />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="edit-address">Address</Label>
+                    <Input id="edit-address" value={editFormData.address || ""} onChange={e => setEditFormData({ ...editFormData, address: e.target.value })} placeholder="123 Main St..." />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-emerg-name">Emergency Contact Name</Label>
+                    <Input id="edit-emerg-name" value={editFormData.emergency_contact_name || ""} onChange={e => setEditFormData({ ...editFormData, emergency_contact_name: e.target.value })} placeholder="Jane Doe" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-emerg-phone">Emergency Phone</Label>
+                    <Input id="edit-emerg-phone" value={editFormData.emergency_contact_phone || ""} onChange={e => setEditFormData({ ...editFormData, emergency_contact_phone: e.target.value })} placeholder="Jane Doe" />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="edit-allergies">Allergies</Label>
+                    <Input id="edit-allergies" value={editFormData.allergies || ""} onChange={e => setEditFormData({ ...editFormData, allergies: e.target.value })} placeholder="Peanuts..." />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="edit-history">Medical History</Label>
+                    <Input id="edit-history" value={editFormData.medical_history || ""} onChange={e => setEditFormData({ ...editFormData, medical_history: e.target.value })} placeholder="Diabetic..." />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="edit-status">Status</Label>
+                    <Select value={editFormData.status || ""} onValueChange={(v) => setEditFormData({ ...editFormData, status: v || "" })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                        <SelectItem value="Deceased">Deceased</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end pt-4 gap-2 border-t mt-4">
+                <Button variant="outline" type="button" onClick={() => setEditOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={savingEdit}>
+                  {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Patients</h1>
+              <p className="text-muted-foreground">
+                Manage patient records and clinical histories.
+              </p>
+            </div>
+            
+            <Button onClick={() => setIsOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add New Patient
+            </Button>
+          </div>
 
-        {/* Patient History Dialog */}
+          <Card>
+            <CardHeader className="py-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">All Patients</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="relative w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search by name or ID..."
+                      className="pl-8 h-9"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="outline" size="icon" className="h-9 w-9">
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Patient ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Age / Gender</TableHead>
+                    <TableHead>Blood Group</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Last Visit</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredPatients.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No patients found. Add one to get started.
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredPatients.map((patient) => (
+                    <TableRow key={patient.id}>
+                      <TableCell className="font-medium">{patient.patient_id}</TableCell>
+                      <TableCell>{patient.full_name}</TableCell>
+                      <TableCell>{patient.age || '-'} / {patient.gender || '-'}</TableCell>
+                      <TableCell>{patient.blood_group || '-'}</TableCell>
+                      <TableCell>{patient.phone || '-'}</TableCell>
+                      <TableCell>{patient.last_visit || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={patient.status === "Active" ? "default" : "secondary"}>
+                          {patient.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(patient)}>History</Button>
+                        <Link href={`/id-cards?query=${patient.patient_id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                          ID Card
+                        </Link>
+                        <Button variant="ghost" size="sm" onClick={() => handleEditClick(patient)}>Edit</Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(patient)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950">Delete</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Patient History Dialog */}
         <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
@@ -512,190 +703,6 @@ export default function PatientsView() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-
-      <Card>
-        <CardHeader className="py-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">All Patients</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search by name or ID..."
-                  className="pl-8 h-9"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <Button variant="outline" size="icon" className="h-9 w-9">
-                <Filter className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Patient ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Age / Gender</TableHead>
-                <TableHead>Blood Group</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Last Visit</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : filteredPatients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No patients found. Add one to get started.
-                  </TableCell>
-                </TableRow>
-              ) : filteredPatients.map((patient) => (
-                <TableRow key={patient.id}>
-                  <TableCell className="font-medium">{patient.patient_id}</TableCell>
-                  <TableCell>{patient.full_name}</TableCell>
-                  <TableCell>{patient.age || '-'} / {patient.gender || '-'}</TableCell>
-                  <TableCell>{patient.blood_group || '-'}</TableCell>
-                  <TableCell>{patient.phone || '-'}</TableCell>
-                  <TableCell>{patient.last_visit || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={patient.status === "Active" ? "default" : "secondary"}>
-                      {patient.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button variant="ghost" size="sm" onClick={() => handleViewHistory(patient)}>History</Button>
-                    <Link href={`/id-cards?query=${patient.patient_id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                      ID Card
-                    </Link>
-                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(patient)}>Edit</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(patient)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950">Delete</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Edit Patient Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Patient</DialogTitle>
-            <DialogDescription>
-              Update patient information.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdate}>
-            <div className="grid gap-4 py-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="edit-name">Full Name *</Label>
-                  <Input id="edit-name" required value={editFormData.full_name || ""} onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })} placeholder="John Doe" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-age">Age</Label>
-                  <Input id="edit-age" type="number" value={editFormData.age || ""} onChange={e => setEditFormData({ ...editFormData, age: parseInt(e.target.value) || undefined })} placeholder="30" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-dob">Date of Birth</Label>
-                  <Input id="edit-dob" type="date" value={editFormData.date_of_birth || ""} onChange={e => setEditFormData({ ...editFormData, date_of_birth: e.target.value })} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-gender">Gender</Label>
-                  <Select value={editFormData.gender || ""} onValueChange={(v) => setEditFormData({ ...editFormData, gender: v || "" })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-blood-group">Blood Group</Label>
-                  <Select value={editFormData.blood_group || ""} onValueChange={(v) => setEditFormData({ ...editFormData, blood_group: v || "" })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A+">A+</SelectItem>
-                      <SelectItem value="A-">A-</SelectItem>
-                      <SelectItem value="B+">B+</SelectItem>
-                      <SelectItem value="B-">B-</SelectItem>
-                      <SelectItem value="O+">O+</SelectItem>
-                      <SelectItem value="O-">O-</SelectItem>
-                      <SelectItem value="AB+">AB+</SelectItem>
-                      <SelectItem value="AB-">AB-</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-phone">Phone Number</Label>
-                  <Input id="edit-phone" value={editFormData.phone || ""} onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-email">Email</Label>
-                  <Input id="edit-email" type="email" value={editFormData.email || ""} onChange={e => setEditFormData({ ...editFormData, email: e.target.value })} placeholder="patient@example.com" />
-                </div>
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="edit-address">Address</Label>
-                  <Input id="edit-address" value={editFormData.address || ""} onChange={e => setEditFormData({ ...editFormData, address: e.target.value })} placeholder="123 Main St..." />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-emerg-name">Emergency Contact Name</Label>
-                  <Input id="edit-emerg-name" value={editFormData.emergency_contact_name || ""} onChange={e => setEditFormData({ ...editFormData, emergency_contact_name: e.target.value })} placeholder="Jane Doe" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-emerg-phone">Emergency Phone</Label>
-                  <Input id="edit-emerg-phone" value={editFormData.emergency_contact_phone || ""} onChange={e => setEditFormData({ ...editFormData, emergency_contact_phone: e.target.value })} placeholder="Jane Doe" />
-                </div>
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="edit-allergies">Allergies</Label>
-                  <Input id="edit-allergies" value={editFormData.allergies || ""} onChange={e => setEditFormData({ ...editFormData, allergies: e.target.value })} placeholder="Peanuts..." />
-                </div>
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="edit-history">Medical History</Label>
-                  <Input id="edit-history" value={editFormData.medical_history || ""} onChange={e => setEditFormData({ ...editFormData, medical_history: e.target.value })} placeholder="Diabetic..." />
-                </div>
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="edit-status">Status</Label>
-                  <Select value={editFormData.status || ""} onValueChange={(v) => setEditFormData({ ...editFormData, status: v || "" })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end pt-4">
-              <Button type="submit" disabled={savingEdit}>
-                {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Changes
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>

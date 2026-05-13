@@ -138,7 +138,24 @@ CREATE POLICY "Allow anonymous insert access" on public.hospital_settings FOR IN
 CREATE POLICY "Allow anonymous update access" on public.hospital_settings FOR UPDATE USING (true);
 CREATE POLICY "Allow anonymous delete access" on public.hospital_settings FOR DELETE USING (true);
 
--- Enable Realtime for tables
+CREATE TABLE public.death_certificates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    certificate_id VARCHAR(50) UNIQUE NOT NULL,
+    patient_id UUID REFERENCES public.patients(id) ON DELETE CASCADE,
+    doctor_id UUID REFERENCES public.doctors(id) ON DELETE SET NULL,
+    date_of_death TIMESTAMP WITH TIME ZONE NOT NULL,
+    cause_of_death TEXT NOT NULL,
+    place_of_death TEXT,
+    notes TEXT
+);
+
+CREATE POLICY "Allow anonymous read access" on public.death_certificates FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.death_certificates FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.death_certificates FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.death_certificates FOR DELETE USING (true);
+
+alter publication supabase_realtime add table public.death_certificates;
 begin;
   drop publication if exists supabase_realtime;
   create publication supabase_realtime;
