@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Loader2, CreditCard, Receipt, ScanBarcode } from "lucide-react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -221,7 +222,7 @@ export default function BillingView() {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
+    <div className={cn("flex flex-col gap-6 w-full max-w-6xl mx-auto", invoiceDialogOpen ? "print:hidden" : "")}>
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing & Dues</h1>
         <p className="text-muted-foreground">

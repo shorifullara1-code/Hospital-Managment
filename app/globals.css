@@ -129,32 +129,30 @@
 }
 
 @media print {
-  body[data-scroll-locked] > *:not([data-radix-portal]) {
-    display: none !important;
+  body {
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  body[data-scroll-locked] > [data-radix-portal] {
-    display: block !important;
-  }
-
+  [data-radix-portal],
+  [data-radix-portal] > div,
   [role="dialog"] {
-    position: relative !important;
-    transform: none !important;
+    position: static !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
     max-width: none !important;
-    width: 100% !important;
+    width: auto !important;
+    transform: none !important;
+    background: transparent !important;
     box-shadow: none !important;
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
   }
 
-  /* Only show print area inside portal */
   .print-area {
     display: block !important;
-    visibility: visible !important;
   }
 
   /* Specifically force background graphics to be printed if browser supports */

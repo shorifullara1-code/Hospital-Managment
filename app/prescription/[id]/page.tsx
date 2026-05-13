@@ -115,7 +115,7 @@ export default function PrescriptionPage(props: PageProps) {
         </Button>
       </div>
 
-      <div className="p-8 max-w-[21cm] mx-auto bg-white min-h-[29.7cm] border shadow-sm print:border-none print:shadow-none print:m-0 flex flex-col relative text-black">
+      <div className="print-area p-8 max-w-[21cm] mx-auto bg-white min-h-[29.7cm] border shadow-sm print:border-none print:shadow-none print:m-0 flex flex-col relative text-black">
         {/* Header Region */}
         <div className="flex justify-between items-start border-b-2 border-primary pb-6 shrink-0">
           <div className="flex gap-4 items-start">
