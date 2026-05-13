@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { PlayCircle, Download, FileText, CheckCircle2, Clock, Loader2, Plus, Trash2 } from "lucide-react";
+import { PlayCircle, Download, FileText, CheckCircle2, Clock, Loader2, Plus, Trash2, ScanBarcode } from "lucide-react";
+import { Scanner } from "@yudiel/react-qr-scanner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ export default function DiagnosticsView() {
   const [patients, setPatients] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const isLabsFullyPaid = (lab: any) => {
     const test = testCatalog.find(t => t.name === lab.test_name);
@@ -97,6 +99,21 @@ export default function DiagnosticsView() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const handleScan = (detectedCodes: any[]) => {
+    if (detectedCodes && detectedCodes.length > 0) {
+      const code = detectedCodes[0].rawValue;
+      const term = code.toLowerCase();
+      const found = patients.find(p => 
+        p.patient_id?.toLowerCase().includes(term) || 
+        p.full_name?.toLowerCase().includes(term)
+      );
+      if (found) {
+        setFormData(prev => ({...prev, patient_id: found.id}));
+      }
+      setScannerOpen(false);
+    }
+  };
 
   const handlePay = (labId: string) => {
     const newPaid = { ...paidLabs, [labId]: true };
@@ -188,22 +205,28 @@ export default function DiagnosticsView() {
              <form onSubmit={handleAdd} className="grid gap-4 py-4">
                <div className="grid gap-2">
                  <Label>Patient *</Label>
-                 <Input 
-                   type="search" 
-                   placeholder="Search Patient by ID or Name..." 
-                   onChange={(e) => {
-                     const term = e.target.value.toLowerCase();
-                     if (term.length > 0) {
-                       const found = patients.find(p => 
-                         p.patient_id?.toLowerCase().includes(term) || 
-                         p.full_name?.toLowerCase().includes(term)
-                       );
-                       if (found) {
-                         setFormData({...formData, patient_id: found.id});
+                 <div className="flex gap-2">
+                   <Input 
+                     type="search" 
+                     className="flex-1"
+                     placeholder="Search Patient by ID or Name..." 
+                     onChange={(e) => {
+                       const term = e.target.value.toLowerCase();
+                       if (term.length > 0) {
+                         const found = patients.find(p => 
+                           p.patient_id?.toLowerCase().includes(term) || 
+                           p.full_name?.toLowerCase().includes(term)
+                         );
+                         if (found) {
+                           setFormData({...formData, patient_id: found.id});
+                         }
                        }
-                     }
-                   }} 
-                 />
+                     }} 
+                   />
+                   <Button type="button" variant="outline" size="icon" onClick={() => setScannerOpen(true)}>
+                     <ScanBarcode className="h-5 w-5" />
+                   </Button>
+                 </div>
                  <Select value={formData.patient_id} onValueChange={v => setFormData({...formData, patient_id: v || ""})}>
                     <SelectTrigger><SelectValue placeholder="Or select from list" /></SelectTrigger>
                     <SelectContent>
@@ -468,6 +491,26 @@ export default function DiagnosticsView() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Scanner Dialog */}
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Scan Patient Barcode</DialogTitle>
+            <DialogDescription>
+              Point your camera at the barcode on the patient ID card.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="w-full flex justify-center items-center overflow-hidden rounded-md bg-black">
+             {scannerOpen && (
+               <Scanner
+                  onScan={handleScan}
+                  formats={['code_128', 'qr_code']}
+               />
+             )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
