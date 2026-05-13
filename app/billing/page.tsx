@@ -455,7 +455,7 @@ export default function BillingView() {
 
       {/* Invoice Modal for selected items */}
       <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+         <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto print:absolute print:left-0 print:top-0 print:translate-x-0 print:translate-y-0 print:w-full print:h-auto print:max-h-none print:overflow-visible print:p-0 print:m-0 print:border-none print:shadow-none bg-white">
             <DialogHeader className="print:hidden">
                <DialogTitle>Master Invoice</DialogTitle>
                <DialogDescription>Review and print the invoice.</DialogDescription>
@@ -465,25 +465,25 @@ export default function BillingView() {
             </div>
             
             {/* Printable Invoice Area */}
-            <div className="print-only bg-white text-black p-8 mx-auto w-full max-w-4xl font-sans min-h-screen print:min-h-0">
+            <div className="print-area bg-white text-black p-4 sm:p-8 mx-auto w-full max-w-4xl font-sans min-h-screen print:min-h-0">
                {/* Invoice Header */}
-               <div className="flex justify-between items-start border-b-2 border-gray-800 pb-6 mb-6">
-                 <div className="flex items-center gap-4">
+               <div className="flex flex-row justify-between items-start border-b-2 border-gray-800 pb-6 mb-6">
+                 <div className="flex flex-row items-center gap-4">
                     {hospitalSettings.logo ? (
-                      <img src={hospitalSettings.logo} alt="Logo" className="max-h-24 w-auto object-contain" />
+                      <img src={hospitalSettings.logo} alt="Logo" className="max-h-20 w-auto object-contain" />
                     ) : (
-                      <div className="h-20 w-20 bg-gray-200 border flex items-center justify-center text-xs font-bold text-gray-500 rounded">LOGO</div>
+                      <div className="h-20 w-20 bg-gray-200 border flex items-center justify-center text-xs font-bold text-gray-500 rounded flex-shrink-0">LOGO</div>
                     )}
-                    <div>
-                      <h2 className="text-3xl font-bold text-gray-900">{hospitalSettings.name || "MedCore Hospital"}</h2>
+                    <div className="text-left">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">{hospitalSettings.name || "MedCore Hospital"}</h2>
                       <p className="text-gray-600 text-sm mt-1">{hospitalSettings.address || "123 Health Ave, Medical District"}</p>
-                      <p className="text-gray-600 text-sm">Phone: {hospitalSettings.phone || "+1 234 567 8900"} | Email: {hospitalSettings.email || "contact@medcore.com"}</p>
+                      <p className="text-gray-600 text-sm">Phone: {hospitalSettings.phone || "+1 234 567 8900"} <br className="sm:hidden" /> Email: {hospitalSettings.email || "contact@medcore.com"}</p>
                     </div>
                  </div>
-                 <div className="text-right">
-                    <h1 className="text-4xl font-bold tracking-widest text-gray-200 mb-2 uppercase">Invoice</h1>
-                    <p className="text-sm font-semibold">Date: {invoiceDate || new Date().toLocaleDateString()}</p>
-                    <p className="text-sm">Invoice #: {invoiceId || "INV-PENDING"}</p>
+                 <div className="text-right pl-4">
+                    <h1 className="text-2xl sm:text-4xl font-bold tracking-widest text-gray-300 mb-2 uppercase">Invoice</h1>
+                    <p className="text-sm font-semibold text-gray-800">Date: {invoiceDate || new Date().toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-800">Invoice #: {invoiceId || "INV-PENDING"}</p>
                  </div>
                </div>
                
