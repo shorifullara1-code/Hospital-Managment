@@ -55,12 +55,16 @@ export default function DoctorsView() {
   const [deleting, setDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
-    doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}`,
+    doctor_id: "DR-####",
     name: "",
     speciality: "",
     qualification: "",
     fee: "50",
   });
+
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}` }));
+  }, []);
 
   const fetchDoctors = async () => {
     setLoading(true);

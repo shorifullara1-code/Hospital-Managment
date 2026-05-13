@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, CreditCard, Receipt, ScanBarcode } from "lucide-react";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,12 @@ export default function BillingView() {
   const [patient, setPatient] = useState<any>(null);
   const [dues, setDues] = useState<any[]>([]);
   const [payAmount, setPayAmount] = useState<Record<string, string>>({});
+  const [selectedDues, setSelectedDues] = useState<string[]>([]);
+  const [bulkPaymentDialogOpen, setBulkPaymentDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState("");
+  const [hospitalSettings, setHospitalSettings] = useState<any>({});
 
   const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
   
@@ -40,13 +47,15 @@ export default function BillingView() {
   const [selectedLab, setSelectedLab] = useState<any>(null);
   const [currentPayAmount, setCurrentPayAmount] = useState("");
 
-  const [payAllDialogOpen, setPayAllDialogOpen] = useState(false);
-
   useEffect(() => {
     // Load local storage payments (stored as object { labId: numberPaid })
     const paidStorage = localStorage.getItem('diag_paid_labs');
     if (paidStorage) {
       setPaidLabs(JSON.parse(paidStorage));
+    }
+    const settings = localStorage.getItem('hospital_settings');
+    if (settings) {
+       setHospitalSettings(JSON.parse(settings));
     }
   }, []);
 
@@ -123,6 +132,64 @@ export default function BillingView() {
     }
   };
 
+  const toggleSelectDue = (id: string) => {
+     setSelectedDues(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+     if (selectedDues.length === dues.length) {
+        setSelectedDues([]);
+     } else {
+        setSelectedDues(dues.map(d => d.id));
+     }
+  };
+
+  const processBulkPayment = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (selectedDues.length === 0 || !currentPayAmount) return;
+
+     const amountToAdd = parseFloat(currentPayAmount) || 0;
+     if (amountToAdd <= 0) return;
+
+     // We distribute the amount among selected dues sequentially or simply accept it as total
+     // The simplest is to fulfill dues sequentially up to the paid amount, or if they just typed the EXACT remaining, it pays all.
+     // Requirement says "pay them together", so we distribute the bulk payment across selected dues.
+     
+     let remainingBulkPayment = amountToAdd;
+     let newPaidLabs = { ...paidLabs };
+     
+     const updatedDues = dues.map(d => {
+        if (selectedDues.includes(d.id) && remainingBulkPayment > 0) {
+           const remDue = d.remaining_due;
+           if (remDue > 0) {
+              const paymentForThis = Math.min(remDue, remainingBulkPayment);
+              
+              const currentPaid = newPaidLabs[d.id] === true ? d.total_price : (Number(newPaidLabs[d.id]) || 0);
+              const newTotalPaid = currentPaid + paymentForThis;
+              
+              newPaidLabs[d.id] = newTotalPaid;
+              remainingBulkPayment -= paymentForThis;
+              
+              const newRemainingDue = d.total_price - newTotalPaid;
+              return { ...d, paid_amount: newTotalPaid, remaining_due: newRemainingDue, is_paid: newRemainingDue <= 0 };
+           }
+        }
+        return d;
+     });
+     
+     setPaidLabs(newPaidLabs);
+     localStorage.setItem('diag_paid_labs', JSON.stringify(newPaidLabs));
+     setDues(updatedDues);
+     
+     setBulkPaymentDialogOpen(false);
+     setCurrentPayAmount("");
+     
+     // After payment, automatically open invoice for the selected dues
+     setInvoiceDialogOpen(true);
+     setInvoiceId(`INV-${Math.floor(100000 + Math.random() * 900000)}`);
+     setInvoiceDate(new Date().toLocaleDateString());
+  };
+
   const processPayment = (e: React.FormEvent) => {
      e.preventDefault();
      if (!selectedLab || !currentPayAmount) return;
@@ -153,30 +220,8 @@ export default function BillingView() {
      alert("Payment successful!");
   };
 
-  const handlePayAllDues = (e: React.FormEvent) => {
-    e.preventDefault();
-    const unpaidDues = dues.filter(d => !d.is_paid);
-    if (unpaidDues.length === 0) return;
-
-    let newPaid = { ...paidLabs };
-    unpaidDues.forEach(d => {
-       newPaid[d.id] = d.total_price;
-    });
-
-    setPaidLabs(newPaid);
-    localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
-
-    setDues(dues.map(d => {
-       return { ...d, paid_amount: d.total_price, remaining_due: 0, is_paid: true };
-    }));
-
-    setPayAllDialogOpen(false);
-    alert("All dues paid successfully!");
-  };
-
   return (
-    <>
-    <div className="print:hidden flex flex-col gap-6 w-full max-w-6xl mx-auto">
+    <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing & Dues</h1>
         <p className="text-muted-foreground">
@@ -221,20 +266,27 @@ export default function BillingView() {
                     <CardTitle className="text-xl">{patient.full_name}</CardTitle>
                     <CardDescription>ID: {patient.patient_id} | Phone: {patient.phone}</CardDescription>
                  </div>
-                 <div className="text-right flex flex-col items-end gap-2">
+                 <div className="text-right">
                     <div className="text-sm text-muted-foreground">Total Dues</div>
                     <div className="text-2xl font-bold text-red-600">
                       ${dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
                     </div>
-                    {dues.filter(d => !d.is_paid).length > 0 && (
-                      <Button onClick={() => setPayAllDialogOpen(true)} className="bg-green-600 hover:bg-green-700">
-                        Pay All Dues
-                      </Button>
+                    {selectedDues.length > 0 && (
+                      <div className="flex items-center gap-2 mt-4 justify-end">
+                         <Button onClick={() => setInvoiceDialogOpen(true)} variant="outline" className="bg-white">
+                           <Receipt className="h-4 w-4 mr-2" />
+                           Generate Invoice
+                         </Button>
+                         <Button onClick={() => {
+                            const totalSelectedRemaining = dues.filter(d => selectedDues.includes(d.id)).reduce((acc, curr) => acc + curr.remaining_due, 0);
+                            setCurrentPayAmount(totalSelectedRemaining.toString());
+                            setBulkPaymentDialogOpen(true);
+                         }} className="bg-green-600 hover:bg-green-700">
+                           <CreditCard className="h-4 w-4 mr-2" />
+                           Pay Selected ({selectedDues.length})
+                         </Button>
+                      </div>
                     )}
-                    <Button onClick={() => window.print()} variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
-                      <Receipt className="h-4 w-4 mr-2" />
-                      Print Invoice
-                    </Button>
                  </div>
                </div>
             </CardHeader>
@@ -242,6 +294,13 @@ export default function BillingView() {
                <Table>
                  <TableHeader>
                    <TableRow>
+                     <TableHead className="w-12">
+                        <Checkbox 
+                          checked={selectedDues.length > 0 && selectedDues.length === dues.length} 
+                          onCheckedChange={toggleSelectAll} 
+                          aria-label="Select all"
+                        />
+                     </TableHead>
                      <TableHead>Test Date</TableHead>
                      <TableHead>Test Name</TableHead>
                      <TableHead>Total Cost</TableHead>
@@ -253,20 +312,27 @@ export default function BillingView() {
                  <TableBody>
                    {dues.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No diagnostics found for this patient.</TableCell>
+                       <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No diagnostics found for this patient.</TableCell>
                      </TableRow>
                    ) : (
                      dues.map(d => (
-                       <TableRow key={d.id}>
+                       <TableRow key={d.id} className={selectedDues.includes(d.id) ? "bg-muted/50" : ""}>
+                         <TableCell>
+                           <Checkbox 
+                             checked={selectedDues.includes(d.id)}
+                             onCheckedChange={() => toggleSelectDue(d.id)}
+                             aria-label={`Select ${d.test_name}`}
+                           />
+                         </TableCell>
                          <TableCell>{d.test_date}</TableCell>
                          <TableCell className="font-medium">{d.test_name}</TableCell>
-                         <TableCell className="font-bold">${d.total_price}</TableCell>
-                         <TableCell className="text-green-600 font-medium">${d.paid_amount || 0}</TableCell>
+                         <TableCell className="font-bold">${d.total_price.toFixed(2)}</TableCell>
+                         <TableCell className="text-green-600 font-medium">${(d.paid_amount || 0).toFixed(2)}</TableCell>
                          <TableCell>
                             {d.is_paid ? (
                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Paid full</Badge>
                             ) : (
-                               <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ${d.remaining_due}</Badge>
+                               <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ${d.remaining_due.toFixed(2)}</Badge>
                             )}
                          </TableCell>
                          <TableCell className="text-right">
@@ -335,27 +401,173 @@ export default function BillingView() {
          </DialogContent>
       </Dialog>
       
-      {/* Pay All Dialog */}
-      <Dialog open={payAllDialogOpen} onOpenChange={setPayAllDialogOpen}>
+      {/* Bulk Payment Dialog */}
+      <Dialog open={bulkPaymentDialogOpen} onOpenChange={setBulkPaymentDialogOpen}>
          <DialogContent>
             <DialogHeader>
-               <DialogTitle>Pay All Dues</DialogTitle>
+               <DialogTitle>Process Payment</DialogTitle>
                <DialogDescription>
-                  You are about to pay all remaining dues for {patient?.full_name}.
+                  Enter the amount the patient is paying for the {selectedDues.length} selected bills.
                </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handlePayAllDues} className="grid gap-4 py-4">
-               <div className="flex justify-between pb-4 border-b">
-                  <span className="text-muted-foreground font-semibold">Total Remaining Dues:</span>
-                  <span className="font-bold text-red-600">
-                     ${dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
-                  </span>
-               </div>
+            <form onSubmit={processBulkPayment} className="grid gap-4 py-4">
+               {(() => {
+                  const items = dues.filter(d => selectedDues.includes(d.id));
+                  const total = items.reduce((a, b) => a + b.total_price, 0);
+                  const paid = items.reduce((a, b) => a + (b.paid_amount || 0), 0);
+                  const rem = items.reduce((a, b) => a + b.remaining_due, 0);
+                  return (
+                    <>
+                      <div className="flex justify-between pb-4 border-b">
+                         <span className="text-muted-foreground">Total Cost (Selected):</span>
+                         <span className="font-medium">${total.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between pb-4 border-b">
+                         <span className="text-muted-foreground">Already Paid:</span>
+                         <span className="font-medium text-green-600">${paid.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between pb-4 border-b">
+                         <span className="text-muted-foreground font-semibold">Remaining Due:</span>
+                         <span className="font-bold text-red-600">${rem.toFixed(2)}</span>
+                      </div>
+                      <div className="grid gap-2 pt-4">
+                         <Label>Payment Amount ($)</Label>
+                         <Input 
+                            type="number" 
+                            min="1" 
+                            max={rem} 
+                            step="0.01"
+                            value={currentPayAmount}
+                            onChange={(e) => setCurrentPayAmount(e.target.value)}
+                            required
+                         />
+                      </div>
+                    </>
+                  );
+               })()}
                <div className="flex justify-end pt-4 gap-2">
-                  <Button type="button" variant="outline" onClick={() => setPayAllDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" className="bg-green-600 hover:bg-green-700">Confirm Payment</Button>
+                  <Button type="button" variant="outline" onClick={() => setBulkPaymentDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit">Confirm Payment</Button>
                </div>
             </form>
+         </DialogContent>
+      </Dialog>
+
+      {/* Invoice Modal for selected items */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="print:hidden">
+               <DialogTitle>Master Invoice</DialogTitle>
+               <DialogDescription>Review and print the invoice.</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end print:hidden mb-4">
+               <Button onClick={() => window.print()}><Receipt className="mr-2 h-4 w-4" /> Print Invoice</Button>
+            </div>
+            
+            {/* Printable Invoice Area */}
+            <div className="print-only bg-white text-black p-8 mx-auto w-full max-w-4xl font-sans min-h-screen print:min-h-0">
+               {/* Invoice Header */}
+               <div className="flex justify-between items-start border-b-2 border-gray-800 pb-6 mb-6">
+                 <div className="flex items-center gap-4">
+                    {hospitalSettings.logo ? (
+                      <img src={hospitalSettings.logo} alt="Logo" className="max-h-24 w-auto object-contain" />
+                    ) : (
+                      <div className="h-20 w-20 bg-gray-200 border flex items-center justify-center text-xs font-bold text-gray-500 rounded">LOGO</div>
+                    )}
+                    <div>
+                      <h2 className="text-3xl font-bold text-gray-900">{hospitalSettings.name || "MedCore Hospital"}</h2>
+                      <p className="text-gray-600 text-sm mt-1">{hospitalSettings.address || "123 Health Ave, Medical District"}</p>
+                      <p className="text-gray-600 text-sm">Phone: {hospitalSettings.phone || "+1 234 567 8900"} | Email: {hospitalSettings.email || "contact@medcore.com"}</p>
+                    </div>
+                 </div>
+                 <div className="text-right">
+                    <h1 className="text-4xl font-bold tracking-widest text-gray-200 mb-2 uppercase">Invoice</h1>
+                    <p className="text-sm font-semibold">Date: {invoiceDate || new Date().toLocaleDateString()}</p>
+                    <p className="text-sm">Invoice #: {invoiceId || "INV-PENDING"}</p>
+                 </div>
+               </div>
+               
+               {/* Patient Info */}
+               <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg mb-8">
+                  <h3 className="font-bold text-gray-800 border-b pb-2 mb-3">Bill To:</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div>
+                        <p className="text-gray-600 text-sm">Patient Name</p>
+                        <p className="font-semibold text-lg">{patient?.full_name}</p>
+                     </div>
+                     <div>
+                        <p className="text-gray-600 text-sm">Patient ID</p>
+                        <p className="font-semibold">{patient?.patient_id}</p>
+                     </div>
+                     <div>
+                        <p className="text-gray-600 text-sm">Phone</p>
+                        <p className="font-semibold">{patient?.phone}</p>
+                     </div>
+                     <div>
+                        <p className="text-gray-600 text-sm">Age/Gender</p>
+                        <p className="font-semibold">{patient?.age} Yrs / {patient?.gender}</p>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Items Table */}
+               <div className="mb-8">
+                 <table className="w-full text-left border-collapse">
+                   <thead>
+                     <tr className="bg-gray-800 text-white">
+                        <th className="py-3 px-4 font-semibold text-sm rounded-tl">#</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Test Description</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Date</th>
+                        <th className="py-3 px-4 font-semibold text-sm text-right rounded-tr">Amount</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {dues.filter(d => selectedDues.includes(d.id)).map((d, index) => (
+                       <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm text-gray-600">{index + 1}</td>
+                          <td className="py-3 px-4 font-medium text-gray-800">{d.test_name}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600">{d.test_date}</td>
+                          <td className="py-3 px-4 text-right font-medium text-gray-800">${d.total_price.toFixed(2)}</td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
+               
+               {/* Summary */}
+               <div className="flex justify-end pr-4">
+                  <div className="w-64 space-y-3">
+                     {(() => {
+                        const items = dues.filter(d => selectedDues.includes(d.id));
+                        const total = items.reduce((a, b) => a + b.total_price, 0);
+                        const paid = items.reduce((a, b) => a + (b.paid_amount || 0), 0);
+                        const rem = items.reduce((a, b) => a + b.remaining_due, 0);
+                        return (
+                          <>
+                           <div className="flex justify-between items-center text-gray-600">
+                             <span>Subtotal</span>
+                             <span className="font-medium">${total.toFixed(2)}</span>
+                           </div>
+                           <div className="flex justify-between items-center text-green-700">
+                             <span>Paid Amount</span>
+                             <span className="font-medium border-b border-gray-300 pb-1">${paid.toFixed(2)}</span>
+                           </div>
+                           <div className="flex justify-between items-center text-xl font-bold pt-2 text-gray-900 border-t-2 border-gray-800">
+                             <span>Balance Due</span>
+                             <span>${rem.toFixed(2)}</span>
+                           </div>
+                          </>
+                        );
+                     })()}
+                  </div>
+               </div>
+
+               {/* Footer */}
+               <div className="mt-16 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
+                 <p className="font-semibold text-gray-700 mb-1">Thank you for your business.</p>
+                 <p>If you have any questions concerning this invoice, contact our billing department.</p>
+               </div>
+            </div>
          </DialogContent>
       </Dialog>
       
@@ -379,95 +591,5 @@ export default function BillingView() {
         </DialogContent>
       </Dialog>
     </div>
-
-    {/* Printable Unified Invoice */}
-    {patient && (
-      <div className="hidden print:block w-full bg-white text-black bg-white p-10 font-sans fixed inset-0 z-[100] h-screen overflow-visible">
-        <div className="max-w-4xl mx-auto border border-gray-200 p-10 rounded-xl shadow-sm">
-          <div className="flex justify-between items-start border-b border-gray-200 pb-8 mb-8">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 tracking-tight">INVOICE</h1>
-              <p className="text-sm text-gray-500 mt-2 font-mono">#{Math.floor(Date.now() / 1000).toString()}</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-xl font-bold text-gray-900">Hospital Management Sys</h2>
-              <p className="text-sm text-gray-500 mt-1">123 Health Ave, Medical City</p>
-              <p className="text-sm text-gray-500">contact@hms-hospital.com</p>
-              <p className="text-sm text-gray-500">+1 (555) 123-4567</p>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Billed To</p>
-              <h3 className="text-lg font-bold text-gray-900">{patient.full_name}</h3>
-              <p className="text-sm text-gray-600 mt-1">Patient ID: <span className="font-mono">{patient.patient_id}</span></p>
-              <p className="text-sm text-gray-600">Phone: {patient.phone}</p>
-              <p className="text-sm text-gray-600">Age/Gender: {patient.age} / {patient.gender}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Invoice Info</p>
-              <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
-              <p className="text-sm text-gray-600">Time: {new Date().toLocaleTimeString()}</p>
-            </div>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg overflow-hidden mb-8">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 text-gray-900 border-b border-gray-200">
-                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider">Test/Service Name</th>
-                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider">Date</th>
-                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Price</th>
-                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Paid</th>
-                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Due</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {dues.map((d, index) => (
-                  <tr key={index} className="text-sm text-gray-700 bg-white">
-                    <td className="py-4 px-4 font-medium text-gray-900">{d.test_name}</td>
-                    <td className="py-4 px-4 text-gray-500">{new Date(d.test_date || d.created_at).toLocaleDateString()}</td>
-                    <td className="py-4 px-4 text-right">${d.total_price.toFixed(2)}</td>
-                    <td className="py-4 px-4 text-right text-gray-600">${Number(d.paid_amount || 0).toFixed(2)}</td>
-                    <td className="py-4 px-4 text-right font-medium text-gray-900">${d.remaining_due.toFixed(2)}</td>
-                  </tr>
-                ))}
-                {dues.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-gray-500 italic">No tests or services found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex justify-end mb-12">
-            <div className="w-1/2 p-6 bg-gray-50 rounded-lg">
-              <div className="flex justify-between mb-3 text-sm">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="font-medium text-gray-900">${dues.reduce((acc, d) => acc + d.total_price, 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between mb-3 text-sm">
-                <span className="text-gray-600">Total Paid:</span>
-                <span className="font-medium text-green-600">${dues.reduce((acc, d) => acc + (d.paid_amount || 0), 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
-                <span className="text-base font-bold text-gray-900">Total Due:</span>
-                <span className="text-xl font-bold text-red-600">
-                  ${dues.reduce((acc, d) => acc + d.remaining_due, 0).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-8 text-center">
-             <p className="text-sm font-medium text-gray-900 mb-1">Thank you for your trust in our hospital.</p>
-             <p className="text-xs text-gray-500">If you have any questions concerning this invoice, please contact our billing department.</p>
-          </div>
-        </div>
-      </div>
-    )}
-    </>
   );
 }
