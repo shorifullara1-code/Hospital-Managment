@@ -25,7 +25,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export default function BillingView() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,11 +39,11 @@ export default function BillingView() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [selectedLab, setSelectedLab] = useState<any>(null);
   const [currentPayAmount, setCurrentPayAmount] = useState("");
-  const [paymentMode, setPaymentMode] = useState<'single' | 'bulk'>('single');
-  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
+
+  const [payAllDialogOpen, setPayAllDialogOpen] = useState(false);
 
   useEffect(() => {
-    // Load local storage payments
+    // Load local storage payments (stored as object { labId: numberPaid })
     const paidStorage = localStorage.getItem('diag_paid_labs');
     if (paidStorage) {
       setPaidLabs(JSON.parse(paidStorage));
@@ -57,7 +56,6 @@ export default function BillingView() {
     setLoading(true);
     setPatient(null);
     setDues([]);
-    setBulkSelectedIds([]);
     
     // Find patient by ID
     const { data: patientData, error: patientError } = await supabase
@@ -78,7 +76,6 @@ export default function BillingView() {
        if (labsData) {
          const storedCatalog = localStorage.getItem('diag_catalog');
          const catalog = storedCatalog ? JSON.parse(storedCatalog) : [];
-         const currentPaidLabs = JSON.parse(localStorage.getItem('diag_paid_labs') || '{}');
          
          const labsWithPrices = labsData.map(lab => {
             const test = catalog.find((t: any) => t.name === lab.test_name);
@@ -86,10 +83,10 @@ export default function BillingView() {
             
             // Check paid amount from localstorage (simple tracker)
             let paidAmount = 0;
-            if (currentPaidLabs[lab.id] === true) {
+            if (paidLabs[lab.id] === true) {
                paidAmount = price; // Old format (boolean) mapping to full price
             } else {
-               paidAmount = Number(currentPaidLabs[lab.id]) || 0;
+               paidAmount = Number(paidLabs[lab.id]) || 0;
             }
             const remainingDue = price - paidAmount;
             const isFullyPaid = remainingDue <= 0;
@@ -126,81 +123,8 @@ export default function BillingView() {
     }
   };
 
-  const toggleSelection = (id: string) => {
-    setBulkSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setBulkSelectedIds(dues.map(d => d.id));
-    } else {
-      setBulkSelectedIds([]);
-    }
-  };
-
-  const openBulkPaymentDialog = () => {
-     const unpaidSelected = dues.filter(d => bulkSelectedIds.includes(d.id) && !d.is_paid);
-     if (unpaidSelected.length === 0) {
-        alert("No unpaid bills selected.");
-        return;
-     }
-     const total = unpaidSelected.reduce((sum, d) => sum + d.remaining_due, 0);
-     setCurrentPayAmount(total.toString());
-     setPaymentMode('bulk');
-     setSelectedLab(null);
-     setPaymentDialogOpen(true);
-  };
-
-  const printConsolidatedInvoice = () => {
-     if (bulkSelectedIds.length === 0) {
-        alert("Please select bills to print a consolidated invoice.");
-        return;
-     }
-     window.open(`/billing/consolidated-receipt?ids=${bulkSelectedIds.join(',')}`, '_blank');
-  };
-
   const processPayment = (e: React.FormEvent) => {
      e.preventDefault();
-     
-     if (paymentMode === 'bulk') {
-        const amountToAdd = parseFloat(currentPayAmount) || 0;
-        if (amountToAdd <= 0) return;
-        
-        let newPaid = { ...paidLabs };
-        const unpaidSelected = dues.filter(d => bulkSelectedIds.includes(d.id) && !d.is_paid);
-        
-        // Sum total remaining
-        const totalRemaining = unpaidSelected.reduce((sum, d) => sum + d.remaining_due, 0);
-        
-        // Simple logic: we only support full payment of all selected items in bulk mode
-        // since splitting an arbitrary amount across multiple bills is complicated
-        if (amountToAdd < totalRemaining) {
-           alert(`Please pay the full amount of $${totalRemaining} for bulk payment, or pay items individually.`);
-           return;
-        }
-
-        unpaidSelected.forEach(d => {
-           const currentVal = newPaid[d.id];
-           const currentPaid = currentVal === true ? d.total_price : (Number(currentVal) || 0);
-           newPaid[d.id] = currentPaid + d.remaining_due; 
-        });
-        
-        setPaidLabs(newPaid);
-        localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
-
-        setDues(dues.map(d => {
-           if (bulkSelectedIds.includes(d.id) && !d.is_paid) {
-              return { ...d, paid_amount: d.total_price, remaining_due: 0, is_paid: true };
-           }
-           return d;
-        }));
-
-        setPaymentDialogOpen(false);
-        setCurrentPayAmount("");
-        alert("Bulk payment successful!");
-        return;
-     }
-     
      if (!selectedLab || !currentPayAmount) return;
      
      const amountToAdd = parseFloat(currentPayAmount) || 0;
@@ -229,8 +153,30 @@ export default function BillingView() {
      alert("Payment successful!");
   };
 
+  const handlePayAllDues = (e: React.FormEvent) => {
+    e.preventDefault();
+    const unpaidDues = dues.filter(d => !d.is_paid);
+    if (unpaidDues.length === 0) return;
+
+    let newPaid = { ...paidLabs };
+    unpaidDues.forEach(d => {
+       newPaid[d.id] = d.total_price;
+    });
+
+    setPaidLabs(newPaid);
+    localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
+
+    setDues(dues.map(d => {
+       return { ...d, paid_amount: d.total_price, remaining_due: 0, is_paid: true };
+    }));
+
+    setPayAllDialogOpen(false);
+    alert("All dues paid successfully!");
+  };
+
   return (
-    <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
+    <>
+    <div className="print:hidden flex flex-col gap-6 w-full max-w-6xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing & Dues</h1>
         <p className="text-muted-foreground">
@@ -275,37 +221,27 @@ export default function BillingView() {
                     <CardTitle className="text-xl">{patient.full_name}</CardTitle>
                     <CardDescription>ID: {patient.patient_id} | Phone: {patient.phone}</CardDescription>
                  </div>
-                 <div className="text-right">
+                 <div className="text-right flex flex-col items-end gap-2">
                     <div className="text-sm text-muted-foreground">Total Dues</div>
                     <div className="text-2xl font-bold text-red-600">
                       ${dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
                     </div>
+                    {dues.filter(d => !d.is_paid).length > 0 && (
+                      <Button onClick={() => setPayAllDialogOpen(true)} className="bg-green-600 hover:bg-green-700">
+                        Pay All Dues
+                      </Button>
+                    )}
+                    <Button onClick={() => window.print()} variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+                      <Receipt className="h-4 w-4 mr-2" />
+                      Print Invoice
+                    </Button>
                  </div>
                </div>
-               
-               {dues.length > 0 && (
-                 <div className="flex gap-2 mt-4 pt-4 border-t">
-                    <Button variant="default" onClick={openBulkPaymentDialog} disabled={bulkSelectedIds.length === 0 || !dues.some(d => bulkSelectedIds.includes(d.id) && !d.is_paid)}>
-                       <CreditCard className="h-4 w-4 mr-2" />
-                       Pay Selected
-                    </Button>
-                    <Button variant="outline" onClick={printConsolidatedInvoice} disabled={bulkSelectedIds.length === 0}>
-                       <Receipt className="h-4 w-4 mr-2" />
-                       Print Consolidated Invoice
-                    </Button>
-                 </div>
-               )}
             </CardHeader>
             <CardContent>
                <Table>
                  <TableHeader>
                    <TableRow>
-                     <TableHead className="w-[50px]">
-                       <Checkbox 
-                         checked={dues.length > 0 && bulkSelectedIds.length === dues.length}
-                         onCheckedChange={handleSelectAll} 
-                       />
-                     </TableHead>
                      <TableHead>Test Date</TableHead>
                      <TableHead>Test Name</TableHead>
                      <TableHead>Total Cost</TableHead>
@@ -317,17 +253,11 @@ export default function BillingView() {
                  <TableBody>
                    {dues.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No diagnostics found for this patient.</TableCell>
+                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No diagnostics found for this patient.</TableCell>
                      </TableRow>
                    ) : (
                      dues.map(d => (
                        <TableRow key={d.id}>
-                         <TableCell>
-                           <Checkbox 
-                             checked={bulkSelectedIds.includes(d.id)}
-                             onCheckedChange={() => toggleSelection(d.id)}
-                           />
-                         </TableCell>
                          <TableCell>{d.test_date}</TableCell>
                          <TableCell className="font-medium">{d.test_name}</TableCell>
                          <TableCell className="font-bold">${d.total_price}</TableCell>
@@ -341,7 +271,7 @@ export default function BillingView() {
                          </TableCell>
                          <TableCell className="text-right">
                             {!d.is_paid ? (
-                               <Button size="sm" onClick={() => { setPaymentMode('single'); setSelectedLab(d); setCurrentPayAmount(d.remaining_due.toString()); setPaymentDialogOpen(true); }} className="bg-green-600 hover:bg-green-700">
+                               <Button size="sm" onClick={() => { setSelectedLab(d); setCurrentPayAmount(d.remaining_due.toString()); setPaymentDialogOpen(true); }} className="bg-green-600 hover:bg-green-700">
                                  <CreditCard className="h-4 w-4 mr-2" />
                                  Pay
                                </Button>
@@ -365,39 +295,12 @@ export default function BillingView() {
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
          <DialogContent>
             <DialogHeader>
-               <DialogTitle>{paymentMode === 'bulk' ? 'Bulk Payment' : 'Make a Payment'}</DialogTitle>
+               <DialogTitle>Make a Payment</DialogTitle>
                <DialogDescription>
-                  {paymentMode === 'bulk' 
-                    ? `Pay full remaining due for the selected ${dues.filter(d => bulkSelectedIds.includes(d.id) && !d.is_paid).length} bills.`
-                    : `Enter the amount the patient is paying for ${selectedLab?.test_name}.`}
+                  Enter the amount the patient is paying for {selectedLab?.test_name}.
                </DialogDescription>
             </DialogHeader>
-            {paymentMode === 'bulk' ? (
-                <form onSubmit={processPayment} className="grid gap-4 py-4">
-                   <div className="flex justify-between pb-4 border-b">
-                      <span className="text-muted-foreground font-semibold">Total Remaining Due:</span>
-                      <span className="font-bold text-red-600">${currentPayAmount}</span>
-                   </div>
-                   <div className="grid gap-2 pt-4">
-                      <Label>Payment Amount ($)</Label>
-                      <Input 
-                         type="number" 
-                         min={currentPayAmount} 
-                         step="0.01"
-                         value={currentPayAmount}
-                         onChange={(e) => setCurrentPayAmount(e.target.value)}
-                         required
-                         readOnly
-                         className="bg-muted"
-                      />
-                      <p className="text-xs text-muted-foreground">Bulk payment requires paying the full remaining amount for selected items.</p>
-                   </div>
-                   <div className="flex justify-end pt-4 gap-2">
-                      <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit">Confirm Payment</Button>
-                   </div>
-                </form>                
-            ) : selectedLab && (
+            {selectedLab && (
                <form onSubmit={processPayment} className="grid gap-4 py-4">
                   <div className="flex justify-between pb-4 border-b">
                      <span className="text-muted-foreground">Total Cost:</span>
@@ -432,6 +335,30 @@ export default function BillingView() {
          </DialogContent>
       </Dialog>
       
+      {/* Pay All Dialog */}
+      <Dialog open={payAllDialogOpen} onOpenChange={setPayAllDialogOpen}>
+         <DialogContent>
+            <DialogHeader>
+               <DialogTitle>Pay All Dues</DialogTitle>
+               <DialogDescription>
+                  You are about to pay all remaining dues for {patient?.full_name}.
+               </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handlePayAllDues} className="grid gap-4 py-4">
+               <div className="flex justify-between pb-4 border-b">
+                  <span className="text-muted-foreground font-semibold">Total Remaining Dues:</span>
+                  <span className="font-bold text-red-600">
+                     ${dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
+                  </span>
+               </div>
+               <div className="flex justify-end pt-4 gap-2">
+                  <Button type="button" variant="outline" onClick={() => setPayAllDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700">Confirm Payment</Button>
+               </div>
+            </form>
+         </DialogContent>
+      </Dialog>
+      
       {/* Scanner Dialog */}
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -452,6 +379,95 @@ export default function BillingView() {
         </DialogContent>
       </Dialog>
     </div>
+
+    {/* Printable Unified Invoice */}
+    {patient && (
+      <div className="hidden print:block w-full bg-white text-black bg-white p-10 font-sans fixed inset-0 z-[100] h-screen overflow-visible">
+        <div className="max-w-4xl mx-auto border border-gray-200 p-10 rounded-xl shadow-sm">
+          <div className="flex justify-between items-start border-b border-gray-200 pb-8 mb-8">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 tracking-tight">INVOICE</h1>
+              <p className="text-sm text-gray-500 mt-2 font-mono">#{Math.floor(Date.now() / 1000).toString()}</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-xl font-bold text-gray-900">Hospital Management Sys</h2>
+              <p className="text-sm text-gray-500 mt-1">123 Health Ave, Medical City</p>
+              <p className="text-sm text-gray-500">contact@hms-hospital.com</p>
+              <p className="text-sm text-gray-500">+1 (555) 123-4567</p>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Billed To</p>
+              <h3 className="text-lg font-bold text-gray-900">{patient.full_name}</h3>
+              <p className="text-sm text-gray-600 mt-1">Patient ID: <span className="font-mono">{patient.patient_id}</span></p>
+              <p className="text-sm text-gray-600">Phone: {patient.phone}</p>
+              <p className="text-sm text-gray-600">Age/Gender: {patient.age} / {patient.gender}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Invoice Info</p>
+              <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
+              <p className="text-sm text-gray-600">Time: {new Date().toLocaleTimeString()}</p>
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-8">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-gray-900 border-b border-gray-200">
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider">Test/Service Name</th>
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider">Date</th>
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Price</th>
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Paid</th>
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Due</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {dues.map((d, index) => (
+                  <tr key={index} className="text-sm text-gray-700 bg-white">
+                    <td className="py-4 px-4 font-medium text-gray-900">{d.test_name}</td>
+                    <td className="py-4 px-4 text-gray-500">{new Date(d.test_date || d.created_at).toLocaleDateString()}</td>
+                    <td className="py-4 px-4 text-right">${d.total_price.toFixed(2)}</td>
+                    <td className="py-4 px-4 text-right text-gray-600">${Number(d.paid_amount || 0).toFixed(2)}</td>
+                    <td className="py-4 px-4 text-right font-medium text-gray-900">${d.remaining_due.toFixed(2)}</td>
+                  </tr>
+                ))}
+                {dues.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-gray-500 italic">No tests or services found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end mb-12">
+            <div className="w-1/2 p-6 bg-gray-50 rounded-lg">
+              <div className="flex justify-between mb-3 text-sm">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium text-gray-900">${dues.reduce((acc, d) => acc + d.total_price, 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between mb-3 text-sm">
+                <span className="text-gray-600">Total Paid:</span>
+                <span className="font-medium text-green-600">${dues.reduce((acc, d) => acc + (d.paid_amount || 0), 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+                <span className="text-base font-bold text-gray-900">Total Due:</span>
+                <span className="text-xl font-bold text-red-600">
+                  ${dues.reduce((acc, d) => acc + d.remaining_due, 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-8 text-center">
+             <p className="text-sm font-medium text-gray-900 mb-1">Thank you for your trust in our hospital.</p>
+             <p className="text-xs text-gray-500">If you have any questions concerning this invoice, please contact our billing department.</p>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
-
