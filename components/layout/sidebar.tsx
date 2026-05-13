@@ -25,6 +25,7 @@ const sidebarLinks = [
   { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Death Registry", href: "/death-registry", icon: FileText },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
