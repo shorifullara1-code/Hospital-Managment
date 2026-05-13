@@ -36,6 +36,13 @@ type Patient = {
   gender: string;
   blood_group: string;
   phone: string;
+  email: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  date_of_birth: string;
+  allergies: string;
+  medical_history: string;
+  address: string;
   last_visit: string;
   status: string;
 };
@@ -67,6 +74,13 @@ export default function PatientsView() {
     age: "",
     gender: "",
     phone: "",
+    email: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
+    date_of_birth: "",
+    allergies: "",
+    medical_history: "",
+    address: "",
     blood_group: "O+",
   });
 
@@ -146,12 +160,19 @@ export default function PatientsView() {
       gender: formData.gender,
       blood_group: formData.blood_group,
       phone: formData.phone,
+      email: formData.email,
+      emergency_contact_name: formData.emergency_contact_name,
+      emergency_contact_phone: formData.emergency_contact_phone,
+      date_of_birth: formData.date_of_birth || null,
+      allergies: formData.allergies,
+      medical_history: formData.medical_history,
+      address: formData.address,
       status: "Active"
     }]);
 
     if (!error) {
       setIsOpen(false);
-      setFormData({ name: "", age: "", gender: "", phone: "", blood_group: "O+" });
+      setFormData({ name: "", age: "", gender: "", phone: "", email: "", emergency_contact_name: "", emergency_contact_phone: "", date_of_birth: "", allergies: "", medical_history: "", address: "", blood_group: "O+" });
       fetchPatients();
     } else {
       console.error(error);
@@ -167,6 +188,13 @@ export default function PatientsView() {
       age: patient.age,
       gender: patient.gender,
       phone: patient.phone,
+      email: patient.email,
+      emergency_contact_name: patient.emergency_contact_name,
+      emergency_contact_phone: patient.emergency_contact_phone,
+      date_of_birth: patient.date_of_birth,
+      allergies: patient.allergies,
+      medical_history: patient.medical_history,
+      address: patient.address,
       blood_group: patient.blood_group,
       status: patient.status
     });
@@ -185,6 +213,13 @@ export default function PatientsView() {
         age: editFormData.age ? parseInt(editFormData.age as any) : null,
         gender: editFormData.gender,
         phone: editFormData.phone,
+        email: editFormData.email,
+        emergency_contact_name: editFormData.emergency_contact_name,
+        emergency_contact_phone: editFormData.emergency_contact_phone,
+        date_of_birth: editFormData.date_of_birth || null,
+        allergies: editFormData.allergies,
+        medical_history: editFormData.medical_history,
+        address: editFormData.address,
         blood_group: editFormData.blood_group,
         status: editFormData.status
       })
@@ -246,7 +281,7 @@ export default function PatientsView() {
             <UserPlus className="mr-2 h-4 w-4" />
             Add New Patient
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Patient</DialogTitle>
               <DialogDescription>
@@ -255,14 +290,18 @@ export default function PatientsView() {
             </DialogHeader>
             <form onSubmit={handleRegister}>
               <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name *</Label>
-                  <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="John Doe" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="John Doe" />
+                  </div>
                   <div className="grid gap-2">
                     <Label htmlFor="age">Age</Label>
                     <Input id="age" type="number" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} placeholder="30" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="date_of_birth">Date of Birth</Label>
+                    <Input id="date_of_birth" type="date" value={formData.date_of_birth} onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="gender">Gender</Label>
@@ -277,10 +316,52 @@ export default function PatientsView() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
+                  <div className="grid gap-2">
+                     <Label htmlFor="blood_group">Blood Group</Label>
+                     <Select value={formData.blood_group} onValueChange={(v) => setFormData({ ...formData, blood_group: v || "O+" })}>
+                       <SelectTrigger>
+                         <SelectValue placeholder="Select" />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="A+">A+</SelectItem>
+                         <SelectItem value="A-">A-</SelectItem>
+                         <SelectItem value="B+">B+</SelectItem>
+                         <SelectItem value="B-">B-</SelectItem>
+                         <SelectItem value="O+">O+</SelectItem>
+                         <SelectItem value="O-">O-</SelectItem>
+                         <SelectItem value="AB+">AB+</SelectItem>
+                         <SelectItem value="AB-">AB-</SelectItem>
+                       </SelectContent>
+                     </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input id="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="patient@example.com" />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input id="address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="123 Main St, City, Country" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+                    <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({ ...formData, emergency_contact_name: e.target.value })} placeholder="Jane Doe" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                    <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({ ...formData, emergency_contact_phone: e.target.value })} placeholder="+1 (555) 123-4567" />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="allergies">Allergies</Label>
+                    <Input id="allergies" value={formData.allergies} onChange={e => setFormData({ ...formData, allergies: e.target.value })} placeholder="Peanuts, Penicillin..." />
+                  </div>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor="medical_history">Medical History / Notes</Label>
+                    <Input id="medical_history" value={formData.medical_history} onChange={e => setFormData({ ...formData, medical_history: e.target.value })} placeholder="Diabetic, Hypertension..." />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end pt-4">
@@ -310,6 +391,10 @@ export default function PatientsView() {
                       <p className="font-semibold text-sm mt-1">{selectedPatient.age || '-'} Y / {selectedPatient.gender || '-'}</p>
                     </div>
                     <div>
+                      <p className="text-xs text-muted-foreground uppercase font-medium">DOB</p>
+                      <p className="font-semibold text-sm mt-1">{selectedPatient.date_of_birth ? new Date(selectedPatient.date_of_birth).toLocaleDateString() : '-'}</p>
+                    </div>
+                    <div>
                       <p className="text-xs text-muted-foreground uppercase font-medium">Blood Group</p>
                       <p className="font-semibold text-sm mt-1">{selectedPatient.blood_group || '-'}</p>
                     </div>
@@ -317,9 +402,21 @@ export default function PatientsView() {
                       <p className="text-xs text-muted-foreground uppercase font-medium">Phone</p>
                       <p className="font-semibold text-sm mt-1">{selectedPatient.phone || '-'}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase font-medium">Joined On</p>
-                      <p className="font-semibold text-sm mt-1">{selectedPatient?.last_visit ? new Date(selectedPatient.last_visit).toLocaleDateString() : 'N/A'}</p>
+                    <div className="md:col-span-2">
+                       <p className="text-xs text-muted-foreground uppercase font-medium">Email & Address</p>
+                       <p className="font-semibold text-sm mt-1">{selectedPatient.email || '-'} / {selectedPatient.address || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                       <p className="text-xs text-muted-foreground uppercase font-medium">Emergency Contact</p>
+                       <p className="font-semibold text-sm mt-1">{selectedPatient.emergency_contact_name || '-'} {selectedPatient.emergency_contact_phone ? `(${selectedPatient.emergency_contact_phone})` : ''}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                       <p className="text-xs text-muted-foreground uppercase font-medium">Allergies</p>
+                       <p className="font-semibold text-sm mt-1">{selectedPatient.allergies || 'None recorded'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                       <p className="text-xs text-muted-foreground uppercase font-medium">Medical History</p>
+                       <p className="font-semibold text-sm mt-1">{selectedPatient.medical_history || 'None recorded'}</p>
                     </div>
                  </div>
                )}
@@ -495,7 +592,7 @@ export default function PatientsView() {
 
       {/* Edit Patient Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Patient</DialogTitle>
             <DialogDescription>
@@ -504,14 +601,18 @@ export default function PatientsView() {
           </DialogHeader>
           <form onSubmit={handleUpdate}>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-name">Full Name *</Label>
-                <Input id="edit-name" required value={editFormData.full_name || ""} onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })} placeholder="John Doe" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="edit-name">Full Name *</Label>
+                  <Input id="edit-name" required value={editFormData.full_name || ""} onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })} placeholder="John Doe" />
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-age">Age</Label>
                   <Input id="edit-age" type="number" value={editFormData.age || ""} onChange={e => setEditFormData({ ...editFormData, age: parseInt(e.target.value) || undefined })} placeholder="30" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-dob">Date of Birth</Label>
+                  <Input id="edit-dob" type="date" value={editFormData.date_of_birth || ""} onChange={e => setEditFormData({ ...editFormData, date_of_birth: e.target.value })} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-gender">Gender</Label>
@@ -526,40 +627,64 @@ export default function PatientsView() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-blood-group">Blood Group</Label>
-                <Select value={editFormData.blood_group || ""} onValueChange={(v) => setEditFormData({ ...editFormData, blood_group: v || "" })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A+">A+</SelectItem>
-                    <SelectItem value="A-">A-</SelectItem>
-                    <SelectItem value="B+">B+</SelectItem>
-                    <SelectItem value="B-">B-</SelectItem>
-                    <SelectItem value="O+">O+</SelectItem>
-                    <SelectItem value="O-">O-</SelectItem>
-                    <SelectItem value="AB+">AB+</SelectItem>
-                    <SelectItem value="AB-">AB-</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-phone">Phone Number</Label>
-                <Input id="edit-phone" value={editFormData.phone || ""} onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-status">Status</Label>
-                <Select value={editFormData.status || ""} onValueChange={(v) => setEditFormData({ ...editFormData, status: v || "" })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-blood-group">Blood Group</Label>
+                  <Select value={editFormData.blood_group || ""} onValueChange={(v) => setEditFormData({ ...editFormData, blood_group: v || "" })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A+">A+</SelectItem>
+                      <SelectItem value="A-">A-</SelectItem>
+                      <SelectItem value="B+">B+</SelectItem>
+                      <SelectItem value="B-">B-</SelectItem>
+                      <SelectItem value="O+">O+</SelectItem>
+                      <SelectItem value="O-">O-</SelectItem>
+                      <SelectItem value="AB+">AB+</SelectItem>
+                      <SelectItem value="AB-">AB-</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Input id="edit-phone" value={editFormData.phone || ""} onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="+1 (555) 000-0000" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" type="email" value={editFormData.email || ""} onChange={e => setEditFormData({ ...editFormData, email: e.target.value })} placeholder="patient@example.com" />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input id="edit-address" value={editFormData.address || ""} onChange={e => setEditFormData({ ...editFormData, address: e.target.value })} placeholder="123 Main St..." />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-emerg-name">Emergency Contact Name</Label>
+                  <Input id="edit-emerg-name" value={editFormData.emergency_contact_name || ""} onChange={e => setEditFormData({ ...editFormData, emergency_contact_name: e.target.value })} placeholder="Jane Doe" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-emerg-phone">Emergency Phone</Label>
+                  <Input id="edit-emerg-phone" value={editFormData.emergency_contact_phone || ""} onChange={e => setEditFormData({ ...editFormData, emergency_contact_phone: e.target.value })} placeholder="Jane Doe" />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="edit-allergies">Allergies</Label>
+                  <Input id="edit-allergies" value={editFormData.allergies || ""} onChange={e => setEditFormData({ ...editFormData, allergies: e.target.value })} placeholder="Peanuts..." />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="edit-history">Medical History</Label>
+                  <Input id="edit-history" value={editFormData.medical_history || ""} onChange={e => setEditFormData({ ...editFormData, medical_history: e.target.value })} placeholder="Diabetic..." />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select value={editFormData.status || ""} onValueChange={(v) => setEditFormData({ ...editFormData, status: v || "" })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <div className="flex justify-end pt-4">

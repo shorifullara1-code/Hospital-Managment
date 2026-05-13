@@ -19,6 +19,12 @@ CREATE TABLE public.patients (
     gender VARCHAR(20),
     blood_group VARCHAR(10),
     phone VARCHAR(20),
+    email VARCHAR(100),
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_phone VARCHAR(20),
+    date_of_birth DATE,
+    allergies TEXT,
+    medical_history TEXT,
     address TEXT,
     last_visit DATE,
     status VARCHAR(20) DEFAULT 'Active'
