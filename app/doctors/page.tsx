@@ -25,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Doctor = {
   id: string;
@@ -43,6 +44,15 @@ export default function DoctorsView() {
   const [isOpen, setIsOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [search, setSearch] = useState("");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Doctor>>({});
+  const [editingId, setEditingId] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     doctor_id: `DR-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -92,6 +102,72 @@ export default function DoctorsView() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const handleEditClick = (doctor: Doctor) => {
+    setEditingId(doctor.id);
+    setEditFormData({
+      doctor_id: doctor.doctor_id,
+      full_name: doctor.full_name,
+      speciality: doctor.speciality,
+      qualifications: doctor.qualifications,
+      fee: doctor.fee,
+      status: doctor.status,
+    });
+    setEditOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setSavingEdit(true);
+
+    const { error } = await supabase
+      .from("doctors")
+      .update({
+        doctor_id: editFormData.doctor_id,
+        full_name: editFormData.full_name,
+        speciality: editFormData.speciality,
+        qualifications: editFormData.qualifications,
+        fee: editFormData.fee ? parseFloat(editFormData.fee as any) : 0,
+        status: editFormData.status,
+      })
+      .eq("id", editingId);
+
+    if (!error) {
+      setEditOpen(false);
+      fetchDoctors();
+    } else {
+      console.error(error);
+      alert("Error updating doctor: " + error.message);
+    }
+    setSavingEdit(false);
+  };
+
+  const handleDeleteClick = (doctor: Doctor) => {
+    setDoctorToDelete(doctor);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!doctorToDelete) return;
+    setDeleting(true);
+
+    const { error } = await supabase.from("doctors").delete().eq("id", doctorToDelete.id);
+
+    if (!error) {
+      setDeleteOpen(false);
+      setDoctorToDelete(null);
+      fetchDoctors();
+    } else {
+      console.error(error);
+      if (error.code === '23503') {
+        alert("Cannot delete doctor. They have existing records (appointments, prescriptions, etc). Please delete those first.");
+      } else {
+        alert("Error deleting doctor: " + error.message);
+      }
+    }
+    setDeleting(false);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,7 +327,8 @@ export default function DoctorsView() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">Edit</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(doctor)}>Edit</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(doctor)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950">Delete</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -259,6 +336,82 @@ export default function DoctorsView() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Doctor Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Doctor</DialogTitle>
+            <DialogDescription>
+              Update doctor information and availability status.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdate}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-doctor_id">Doctor ID</Label>
+                <Input id="edit-doctor_id" required value={editFormData.doctor_id || ""} onChange={e => setEditFormData({ ...editFormData, doctor_id: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Full Name *</Label>
+                <Input id="edit-name" required value={editFormData.full_name || ""} onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-speciality">Speciality</Label>
+                <Input id="edit-speciality" value={editFormData.speciality || ""} onChange={e => setEditFormData({ ...editFormData, speciality: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-qualification">Qualifications</Label>
+                <Input id="edit-qualification" value={editFormData.qualifications || ""} onChange={e => setEditFormData({ ...editFormData, qualifications: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-fee">Fee ($)</Label>
+                  <Input id="edit-fee" type="number" required value={editFormData.fee || ""} onChange={e => setEditFormData({ ...editFormData, fee: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select value={editFormData.status || ""} onValueChange={(v) => setEditFormData({ ...editFormData, status: v || "" })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button type="submit" disabled={savingEdit}>
+                {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the doctor record
+              for <span className="font-semibold text-foreground">{doctorToDelete?.full_name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4 gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleting}>
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
