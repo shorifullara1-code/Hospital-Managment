@@ -129,11 +129,11 @@
 }
 
 @media print {
-  body > * {
+  body[data-scroll-locked] > *:not([data-radix-portal]) {
     display: none !important;
   }
-  
-  body > [data-radix-portal] {
+
+  body[data-scroll-locked] > [data-radix-portal] {
     display: block !important;
   }
 
