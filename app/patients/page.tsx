@@ -273,7 +273,7 @@ export default function PatientsView() {
           <CardHeader>
             <CardTitle>Add New Patient</CardTitle>
             <CardDescription>
-              Enter the details of the new patient here. Click save when you're done.
+              Enter the details of the new patient here. Click save when you&apos;re done.
             </CardDescription>
           </CardHeader>
           <CardContent>

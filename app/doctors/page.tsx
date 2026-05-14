@@ -220,7 +220,7 @@ export default function DoctorsView() {
         </div>
         
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className={buttonVariants()}>
+          <DialogTrigger render={<Button />}>
             <UserPlus className="mr-2 h-4 w-4" />
             Register Doctor
           </DialogTrigger>
@@ -228,7 +228,7 @@ export default function DoctorsView() {
             <DialogHeader>
               <DialogTitle>Register Doctor</DialogTitle>
               <DialogDescription>
-                Enter the doctor's details and set their appointment fee.
+                Enter the doctor&apos;s details and set their appointment fee.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleRegister}>

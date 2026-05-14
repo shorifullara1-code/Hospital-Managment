@@ -84,59 +84,62 @@ export default function StaffPage() {
     email: "",
   });
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      const { data: staff, error: staffError } = await supabase
-        .from("staff")
-        .select("*")
-        .order("full_name");
-        
-      if (staffError) {
-        console.error("Failed to fetch staff");
-      } else {
-        setStaffList(staff || []);
-      }
-      setLoading(false);
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: staff, error: staffError } = await supabase
+      .from("staff")
+      .select("*")
+      .order("full_name");
+      
+    if (staffError) {
+      console.error("Failed to fetch staff");
+    } else {
+      setStaffList(staff || []);
     }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    async function fetchDailyAttendance() {
-      const { data, error } = await supabase
-        .from("staff_attendance")
-        .select("*")
-        .eq("attendance_date", attendanceDate);
-        
-      if (!error && data) {
-        const attendanceMap: Record<string, 'Present' | 'Absent' | 'Leave'> = {};
-        data.forEach((rec: Attendance) => {
-          attendanceMap[rec.staff_id] = rec.status;
-        });
-        setDailyAttendance(attendanceMap);
-      } else {
-        setDailyAttendance({});
-      }
+  const fetchDailyAttendance = async () => {
+    const { data, error } = await supabase
+      .from("staff_attendance")
+      .select("*")
+      .eq("attendance_date", attendanceDate);
+      
+    if (!error && data) {
+      const attendanceMap: Record<string, 'Present' | 'Absent' | 'Leave'> = {};
+      data.forEach((rec: Attendance) => {
+        attendanceMap[rec.staff_id] = rec.status;
+      });
+      setDailyAttendance(attendanceMap);
+    } else {
+      setDailyAttendance({});
     }
+  };
+
+  useEffect(() => {
     fetchDailyAttendance();
   }, [attendanceDate]);
 
-  useEffect(() => {
-    async function fetchMonthlyAttendance() {
-      const start = startOfMonth(new Date(selectedMonth));
-      const end = endOfMonth(new Date(selectedMonth));
+  const fetchMonthlyAttendance = async () => {
+    const start = startOfMonth(new Date(selectedMonth));
+    const end = endOfMonth(new Date(selectedMonth));
+    
+    const { data, error } = await supabase
+      .from("staff_attendance")
+      .select("*")
+      .gte("attendance_date", format(start, "yyyy-MM-dd"))
+      .lte("attendance_date", format(end, "yyyy-MM-dd"));
       
-      const { data, error } = await supabase
-        .from("staff_attendance")
-        .select("*")
-        .gte("attendance_date", format(start, "yyyy-MM-dd"))
-        .lte("attendance_date", format(end, "yyyy-MM-dd"));
-        
-      if (!error && data) {
-        setAttendanceRecords(data as Attendance[]);
-      }
+    if (!error && data) {
+      setAttendanceRecords(data as Attendance[]);
     }
+  };
+
+  useEffect(() => {
     fetchMonthlyAttendance();
   }, [selectedMonth]);
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,8 +70,9 @@ type Admission = {
   patient_id: string;
   bed_id: string;
   doctor_id: string;
-  admission_date: string;
   status: 'Admitted' | 'Discharged';
+  admission_date: string;
+  actual_discharge_date?: string;
   diagnosis: string;
   notes: string;
   patient?: { full_name: string };
@@ -106,18 +108,19 @@ export default function IPDPage() {
   const [nursingCharts, setNursingCharts] = useState<NursingChart[]>([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
 
-  useEffect(() => {
-    async function fetchInitialData() {
-      setLoading(true);
-      await Promise.all([
-        fetchBeds(),
-        fetchAdmissions(),
-        fetchDropdownData()
-      ]);
-      setLoading(false);
-    }
-    fetchInitialData();
+  const fetchInitialData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      fetchBeds(),
+      fetchAdmissions(),
+      fetchDropdownData()
+    ]);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   async function fetchBeds() {
     const { data } = await supabase.from("beds").select("*").order("name");
@@ -270,11 +273,9 @@ export default function IPDPage() {
         </div>
         <div className="flex gap-2">
           <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-slate-900 border-none">
-                <BedIcon className="mr-2 h-4 w-4" />
-                Add Bed
-              </Button>
+            <DialogTrigger render={<Button className="bg-slate-900 border-none" />}>
+              <BedIcon className="mr-2 h-4 w-4" />
+              Add Bed
             </DialogTrigger>
             <DialogContent>
                <DialogHeader>
@@ -286,11 +287,9 @@ export default function IPDPage() {
           </Dialog>
 
           <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="default" className="bg-blue-600 hover:bg-blue-700">
-                <UserPlus className="mr-2 h-4 w-4" />
-                New Admission
-              </Button>
+            <DialogTrigger render={<Button variant="default" className="bg-blue-600 hover:bg-blue-700" />}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              New Admission
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
@@ -300,7 +299,7 @@ export default function IPDPage() {
               <form onSubmit={handleAdmission} className="grid grid-cols-2 gap-4 pt-4">
                 <div className="space-y-2">
                   <Label>Patient</Label>
-                  <Select required onValueChange={v => setAdmissionForm({...admissionForm, patient_id: v})}>
+                  <Select required onValueChange={(v) => setAdmissionForm({...admissionForm, patient_id: v as string})}>
                     <SelectTrigger><SelectValue placeholder="Select Patient" /></SelectTrigger>
                     <SelectContent>
                       {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
@@ -309,7 +308,7 @@ export default function IPDPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Bed</Label>
-                  <Select required onValueChange={v => setAdmissionForm({...admissionForm, bed_id: v})}>
+                  <Select required onValueChange={(v) => setAdmissionForm({...admissionForm, bed_id: v as string})}>
                     <SelectTrigger><SelectValue placeholder="Select Bed" /></SelectTrigger>
                     <SelectContent>
                       {beds.filter(b => b.status === 'Available').map(b => (
@@ -320,7 +319,7 @@ export default function IPDPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>In-charge Doctor</Label>
-                  <Select required onValueChange={v => setAdmissionForm({...admissionForm, doctor_id: v})}>
+                  <Select required onValueChange={(v) => setAdmissionForm({...admissionForm, doctor_id: v as string})}>
                     <SelectTrigger><SelectValue placeholder="Select Doctor" /></SelectTrigger>
                     <SelectContent>
                       {doctors.map(d => <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
@@ -512,7 +511,7 @@ export default function IPDPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
                       <Label>Vital Type</Label>
-                      <Select value={chartForm.vital_type} onValueChange={v => setChartForm({...chartForm, vital_type: v})}>
+                      <Select value={chartForm.vital_type} onValueChange={(v: any) => setChartForm({...chartForm, vital_type: v})}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="BP">BP (mmHg)</SelectItem>
@@ -546,7 +545,7 @@ export default function IPDPage() {
 
                 <div className="space-y-2">
                   <Label>Recorded By</Label>
-                  <Select required onValueChange={v => setChartForm({...chartForm, recorded_by: v})}>
+                  <Select required onValueChange={(v) => setChartForm({...chartForm, recorded_by: v as string})}>
                     <SelectTrigger><SelectValue placeholder="Select Staff" /></SelectTrigger>
                     <SelectContent>
                       {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}
@@ -636,7 +635,7 @@ function AddBedForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Type</Label>
-          <Select value={form.type} onValueChange={v => setForm({...form, type: v})}>
+          <Select value={form.type} onValueChange={(v) => setForm({...form, type: v as any})}>
              <SelectTrigger><SelectValue /></SelectTrigger>
              <SelectContent>
                <SelectItem value="General">General</SelectItem>
