@@ -1,521 +1,396 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Check, X, Clock, Calendar as CalendarIcon, UserPlus, Search } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Search, Calendar, CheckCircle2, XCircle, Clock, Save, FileSpreadsheet, Users, ClipboardCheck } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns'
+import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 
 type Staff = {
-  id: string;
-  staff_id: string;
-  full_name: string;
-  designation: string;
-  department: string;
-  phone: string;
-  email: string;
-  status: string;
-};
+  id: string
+  name: string
+  designation: string
+  joined_at: string
+}
 
-type Attendance = {
-  id: string;
-  staff_id: string;
-  attendance_date: string;
-  status: 'Present' | 'Absent' | 'Leave';
-  notes?: string;
-};
+type AttendanceStatus = 'present' | 'absent' | 'leave'
+
+type AttendanceRecord = {
+  id?: string
+  staff_id: string
+  date: string
+  status: AttendanceStatus
+}
 
 export default function StaffPage() {
-  const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<Attendance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [registering, setRegistering] = useState(false);
-  const [savingAttendance, setSavingAttendance] = useState(false);
-  
-  // Daily Attendance state
-  const [attendanceDate, setAttendanceDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [dailyAttendance, setDailyAttendance] = useState<Record<string, 'Present' | 'Absent' | 'Leave'>>({});
-  
-  // Monthly Summary state
-  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), "yyyy-MM"));
-  
-  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<'register' | 'attendance' | 'summary'>('register')
+  const [staffs, setStaffs] = useState<Staff[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [dailyAttendance, setDailyAttendance] = useState<Record<string, AttendanceStatus>>({})
+  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([])
 
-  const [formData, setFormData] = useState({
-    full_name: "",
-    designation: "",
-    department: "",
-    phone: "",
-    email: "",
-  });
+  // Form State
+  const [newStaff, setNewStaff] = useState({ name: '', designation: '' })
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchStaffs()
+    fetchDailyAttendance()
+    fetchMonthlyRecords()
+  }, [])
 
   useEffect(() => {
-    fetchDailyAttendance();
-  }, [attendanceDate]);
+    fetchDailyAttendance()
+  }, [selectedDate])
 
-  async function fetchData() {
-    setLoading(true);
-    const { data: staff, error: staffError } = await supabase
-      .from("staff")
-      .select("*")
-      .order("full_name");
+  const fetchStaffs = async () => {
+    try {
+      const { data, error } = await supabase.from('staff').select('*').order('name')
+      if (error) throw error
+      setStaffs(data || [])
+    } catch (err) {
+      console.error('Error fetching staffs:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchDailyAttendance = async () => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    try {
+      const { data, error } = await supabase
+        .from('staff_attendance')
+        .select('*')
+        .eq('date', dateStr)
       
-    if (staffError) {
-      console.error("Failed to fetch staff");
-    } else {
-      setStaffList(staff || []);
-    }
-    setLoading(false);
-  }
-
-  async function fetchDailyAttendance() {
-    const { data, error } = await supabase
-      .from("staff_attendance")
-      .select("*")
-      .eq("attendance_date", attendanceDate);
+      if (error) throw error
       
-    if (!error && data) {
-      const attendanceMap: Record<string, 'Present' | 'Absent' | 'Leave'> = {};
-      data.forEach((rec: Attendance) => {
-        attendanceMap[rec.staff_id] = rec.status;
-      });
-      setDailyAttendance(attendanceMap);
-    } else {
-      setDailyAttendance({});
+      const attMap: Record<string, AttendanceStatus> = {}
+      data?.forEach(rec => {
+        attMap[rec.staff_id] = rec.status
+      })
+      setDailyAttendance(attMap)
+    } catch (err) {
+      console.error('Error fetching attendance:', err)
     }
   }
 
-  async function fetchMonthlyAttendance() {
-    const start = startOfMonth(new Date(selectedMonth));
-    const end = endOfMonth(new Date(selectedMonth));
-    
-    const { data, error } = await supabase
-      .from("staff_attendance")
-      .select("*")
-      .gte("attendance_date", format(start, "yyyy-MM-dd"))
-      .lte("attendance_date", format(end, "yyyy-MM-dd"));
+  const fetchMonthlyRecords = async () => {
+    const start = format(startOfMonth(selectedDate), 'yyyy-MM-dd')
+    const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
+    try {
+      const { data, error } = await supabase
+        .from('staff_attendance')
+        .select('*')
+        .gte('date', start)
+        .lte('date', end)
       
-    if (!error && data) {
-      setAttendanceRecords(data as Attendance[]);
+      if (error) throw error
+      setMonthlyRecords(data || [])
+    } catch (err) {
+      console.error('Error fetching monthly records:', err)
     }
   }
 
-  useEffect(() => {
-    fetchMonthlyAttendance();
-  }, [selectedMonth]);
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newStaff.name) return
 
-  async function handleRegisterStaff(e: React.FormEvent) {
-    e.preventDefault();
-    setRegistering(true);
-    
-    const staffId = `STF-${Math.floor(1000 + Math.random() * 9000)}`;
-    
-    const { data, error } = await supabase
-      .from("staff")
-      .insert([{
-        ...formData,
-        staff_id: staffId,
-        status: "Active"
-      }])
-      .select();
-
-    if (error) {
-      console.error("Error registering staff: ", error.message);
-    } else {
-      setIsRegisterOpen(false);
-      setFormData({ full_name: "", designation: "", department: "", phone: "", email: "" });
-      fetchData();
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .insert([{ ...newStaff, joined_at: new Date().toISOString() }])
+        .select()
+      
+      if (error) throw error
+      setStaffs([...staffs, data[0]])
+      setNewStaff({ name: '', designation: '' })
+    } catch (err) {
+      console.error('Error adding staff:', err)
     }
-    setRegistering(false);
   }
 
-  async function handleUpdateAttendance(staffId: string, status: 'Present' | 'Absent' | 'Leave') {
-    setDailyAttendance(prev => ({ ...prev, [staffId]: status }));
+  const handleMarkAttendance = (staffId: string, status: AttendanceStatus) => {
+    setDailyAttendance(prev => ({ ...prev, [staffId]: status }))
   }
 
-  async function saveDailyAttendance() {
-    setSavingAttendance(true);
-    const updates = Object.entries(dailyAttendance).map(([staffId, status]) => ({
+  const saveAttendance = async () => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    const records = Object.entries(dailyAttendance).map(([staffId, status]) => ({
       staff_id: staffId,
-      attendance_date: attendanceDate,
+      date: dateStr,
       status: status
-    }));
+    }))
 
-    const { error } = await supabase
-      .from("staff_attendance")
-      .upsert(updates, { onConflict: 'staff_id,attendance_date' });
-
-    if (error) {
-      console.error("Failed to save attendance: ", error.message);
-    } else {
-      fetchMonthlyAttendance(); // Update summary if on same month
-    }
-    setSavingAttendance(false);
-  }
-
-  const filteredStaff = useMemo(() => {
-    return staffList.filter(s => 
-      s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.staff_id.toLowerCase().includes(search.toLowerCase()) ||
-      s.designation.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [staffList, search]);
-
-  // Monthly summary calculations
-  const monthlySummary = useMemo(() => {
-    const summary: Record<string, { present: number; absent: number; leave: number }> = {};
-    
-    attendanceRecords.forEach(rec => {
-      if (!summary[rec.staff_id]) {
-        summary[rec.staff_id] = { present: 0, absent: 0, leave: 0 };
-      }
+    try {
+      const { error } = await supabase
+        .from('staff_attendance')
+        .upsert(records, { onConflict: 'staff_id,date' })
       
-      if (rec.status === 'Present') summary[rec.staff_id].present++;
-      else if (rec.status === 'Absent') summary[rec.staff_id].absent++;
-      else if (rec.status === 'Leave') summary[rec.staff_id].leave++;
-    });
-    
-    return summary;
-  }, [attendanceRecords]);
-
-  if (loading && staffList.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+      if (error) throw error
+      fetchMonthlyRecords()
+      alert('Attendance saved successfully')
+    } catch (err) {
+      console.error('Error saving attendance:', err)
+    }
   }
+
+  const summaryData = useMemo(() => {
+    return staffs.map(staff => {
+      const records = monthlyRecords.filter(r => r.staff_id === staff.id)
+      return {
+        ...staff,
+        present: records.filter(r => r.status === 'present').length,
+        absent: records.filter(r => r.status === 'absent').length,
+        leave: records.filter(r => r.status === 'leave').length,
+        total: records.length
+      }
+    })
+  }, [staffs, monthlyRecords])
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Staff Register</h1>
-          <p className="text-muted-foreground font-medium">Manage hospital staff and their attendance records.</p>
-        </div>
-        <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-slate-900 hover:bg-slate-800 text-white font-semibold">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Register Staff
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="text-slate-900">Register Staff</DialogTitle>
-              <DialogDescription>
-                Enter the details of the new staff member.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleRegisterStaff} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name *</Label>
-                <Input
-                  id="full_name"
-                  required
-                  value={formData.full_name}
-                  onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="Employee Full Name"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="designation">Designation</Label>
-                  <Input
-                    id="designation"
-                    value={formData.designation}
-                    onChange={e => setFormData({ ...formData, designation: e.target.value })}
-                    placeholder="e.g. Nurse"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
-                    value={formData.department}
-                    onChange={e => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="e.g. General"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+1 (555) 000-0000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="email@example.com"
-                />
-              </div>
-              <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800" disabled={registering}>
-                {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Register
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+    <div className="p-8 max-w-6xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Staff Register</h1>
+        <p className="text-gray-500 mt-2">Manage staff details and track daily attendance</p>
       </div>
 
-      <Tabs defaultValue="list" className="w-full">
-        <TabsList className="bg-slate-100 p-1 mb-2">
-          <TabsTrigger value="list" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Staff List</TabsTrigger>
-          <TabsTrigger value="attendance" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Daily Attendance</TabsTrigger>
-          <TabsTrigger value="summary" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Monthly Summary</TabsTrigger>
-        </TabsList>
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-8 w-fit">
+        {[
+          { id: 'register', label: 'Staff Registration', icon: Users },
+          { id: 'attendance', label: 'Daily Attendance', icon: ClipboardCheck },
+          { id: 'summary', label: 'Monthly Summary', icon: FileSpreadsheet },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={cn(
+              "flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all",
+              activeTab === tab.id 
+                ? "bg-white text-gray-900 shadow-sm" 
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <tab.icon className="w-4 h-4 mr-2" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="list" className="mt-0">
-          <Card>
-            <CardHeader className="py-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg text-slate-800">All Staff Members</CardTitle>
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search staff..."
-                    className="pl-8 h-9"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 border-slate-200">
-                    <TableHead className="font-bold text-slate-700">ID</TableHead>
-                    <TableHead className="font-bold text-slate-700">Name</TableHead>
-                    <TableHead className="font-bold text-slate-700">Designation</TableHead>
-                    <TableHead className="font-bold text-slate-700">Department</TableHead>
-                    <TableHead className="font-bold text-slate-700">Contact</TableHead>
-                    <TableHead className="font-bold text-slate-700">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStaff.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No staff members found.
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredStaff.map((staff) => (
-                    <TableRow key={staff.id} className="hover:bg-slate-50 transition-colors">
-                      <TableCell className="font-medium font-mono text-xs">{staff.staff_id}</TableCell>
-                      <TableCell className="font-semibold text-slate-800">{staff.full_name}</TableCell>
-                      <TableCell>{staff.designation}</TableCell>
-                      <TableCell>{staff.department}</TableCell>
-                      <TableCell>
-                        <div className="text-xs space-y-0.5">
-                          <p className="font-medium">{staff.phone}</p>
-                          <p className="text-muted-foreground">{staff.email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={staff.status === "Active" ? "default" : "secondary"}>
-                          {staff.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+      <AnimatePresence mode="wait">
+        {activeTab === 'register' && (
+          <motion.div
+            key="register"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold mb-4 flex items-center">
+                <Plus className="w-5 h-5 mr-2 text-blue-500" />
+                Add New Staff
+              </h2>
+              <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                  type="text"
+                  placeholder="Staff Name"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={newStaff.name}
+                  onChange={e => setNewStaff({ ...newStaff, name: e.target.value })}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Designation"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={newStaff.designation}
+                  onChange={e => setNewStaff({ ...newStaff, designation: e.target.value })}
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Register Staff
+                </button>
+              </form>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Name</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Designation</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Joined At</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {staffs.map(staff => (
+                    <tr key={staff.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-gray-900">{staff.name}</td>
+                      <td className="px-6 py-4 text-gray-600">{staff.designation}</td>
+                      <td className="px-6 py-4 text-gray-500 text-sm">
+                        {staff.joined_at ? format(new Date(staff.joined_at), 'MMM dd, yyyy') : '-'}
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  {staffs.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-12 text-center text-gray-400">
+                        No staff registered yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
 
-        <TabsContent value="attendance" className="mt-0">
-          <Card>
-            <CardHeader className="py-4">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="text-lg text-slate-800">Daily Attendance Tracking</CardTitle>
-                  <CardDescription>Select a date to mark attendance for all staff.</CardDescription>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
-                    <CalendarIcon className="h-4 w-4 text-slate-500 ml-2" />
-                    <Input
-                      type="date"
-                      className="border-none bg-transparent shadow-none h-8 w-40 focus-visible:ring-0"
-                      value={attendanceDate}
-                      onChange={e => setAttendanceDate(e.target.value)}
-                    />
+        {activeTab === 'attendance' && (
+          <motion.div
+            key="attendance"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center space-x-4">
+                <Calendar className="w-5 h-5 text-gray-400" />
+                <input
+                  type="date"
+                  className="border-none focus:ring-0 text-lg font-medium"
+                  value={format(selectedDate, 'yyyy-MM-dd')}
+                  onChange={e => setSelectedDate(parseISO(e.target.value))}
+                />
+              </div>
+              <button
+                onClick={saveAttendance}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Attendance
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff Information</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {staffs.map(staff => (
+                    <tr key={staff.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{staff.name}</div>
+                        <div className="text-xs text-gray-500">{staff.designation}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center space-x-4">
+                          {[
+                            { id: 'present', label: 'Present', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
+                            { id: 'absent', label: 'Absent', icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
+                            { id: 'leave', label: 'Leave', icon: Clock, color: 'text-orange-500', bg: 'bg-orange-50' },
+                          ].map(status => (
+                            <button
+                              key={status.id}
+                              onClick={() => handleMarkAttendance(staff.id, status.id as any)}
+                              className={cn(
+                                "flex flex-col items-center p-3 rounded-xl transition-all border-2",
+                                dailyAttendance[staff.id] === status.id
+                                  ? cn(status.bg, status.color, "border-current")
+                                  : "border-transparent text-gray-400 hover:bg-gray-50"
+                              )}
+                            >
+                              <status.icon className="w-6 h-6 mb-1" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider">{status.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'summary' && (
+          <motion.div
+            key="summary"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 uppercase">Monthly Summary</h2>
+                <p className="text-gray-500">{format(selectedDate, 'MMMM yyyy')}</p>
+              </div>
+              <button className="flex items-center text-blue-600 hover:text-blue-700 font-medium">
+                <FileSpreadsheet className="w-5 h-5 mr-2" />
+                Export Report
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {[
+                { label: 'Total Present', value: summaryData.reduce((acc, s) => acc + s.present, 0), color: 'bg-green-500' },
+                { label: 'Total Absent', value: summaryData.reduce((acc, s) => acc + s.absent, 0), color: 'bg-red-500' },
+                { label: 'Total Leaves', value: summaryData.reduce((acc, s) => acc + s.leave, 0), color: 'bg-orange-500' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center">
+                  <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-opacity-10", stat.color.replace('bg-', 'text-'))}>
+                    <div className={cn("w-3 h-3 rounded-full animate-pulse", stat.color)} />
                   </div>
-                  <Button 
-                    onClick={saveDailyAttendance} 
-                    disabled={savingAttendance}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold"
-                  >
-                    {savingAttendance ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                    Save Attendance
-                  </Button>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead className="font-bold">Staff ID</TableHead>
-                    <TableHead className="font-bold">Name</TableHead>
-                    <TableHead className="font-bold">Designation</TableHead>
-                    <TableHead className="font-bold text-center">Status (Click to Mark)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staffList.filter(s => s.status === 'Active').map((staff) => (
-                    <TableRow key={staff.id} className="hover:bg-slate-50">
-                      <TableCell className="font-mono text-xs">{staff.staff_id}</TableCell>
-                      <TableCell className="font-semibold text-slate-800">{staff.full_name}</TableCell>
-                      <TableCell>{staff.designation}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            size="sm"
-                            variant={dailyAttendance[staff.id] === 'Present' ? "default" : "outline"}
-                            className={dailyAttendance[staff.id] === 'Present' ? "bg-green-600 hover:bg-green-700" : ""}
-                            onClick={() => handleUpdateAttendance(staff.id, 'Present')}
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Present
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={dailyAttendance[staff.id] === 'Absent' ? "destructive" : "outline"}
-                            onClick={() => handleUpdateAttendance(staff.id, 'Absent')}
-                          >
-                            <X className="mr-1 h-3 w-3" />
-                            Absent
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={dailyAttendance[staff.id] === 'Leave' ? "secondary" : "outline"}
-                            className={dailyAttendance[staff.id] === 'Leave' ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200" : ""}
-                            onClick={() => handleUpdateAttendance(staff.id, 'Leave')}
-                          >
-                            <Clock className="mr-1 h-3 w-3" />
-                            Leave
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              ))}
+            </div>
 
-        <TabsContent value="summary" className="mt-0">
-          <Card>
-            <CardHeader className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg text-slate-800">Monthly Attendance Summary</CardTitle>
-                  <CardDescription>View aggregated attendance statistics for the month.</CardDescription>
-                </div>
-                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
-                   <Input
-                    type="month"
-                    className="border-none bg-transparent shadow-none h-9 w-40 focus-visible:ring-0"
-                    value={selectedMonth}
-                    onChange={e => setSelectedMonth(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead className="font-bold">Staff ID</TableHead>
-                    <TableHead className="font-bold">Name</TableHead>
-                    <TableHead className="font-bold">Designation</TableHead>
-                    <TableHead className="font-bold text-center">Present</TableHead>
-                    <TableHead className="font-bold text-center">Absent</TableHead>
-                    <TableHead className="font-bold text-center">Leave</TableHead>
-                    <TableHead className="font-bold text-center">Total Working Days</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staffList.map((staff) => {
-                    const stats = monthlySummary[staff.id] || { present: 0, absent: 0, leave: 0 };
-                    return (
-                      <TableRow key={staff.id} className="hover:bg-slate-50">
-                        <TableCell className="font-mono text-xs">{staff.staff_id}</TableCell>
-                        <TableCell className="font-semibold text-slate-800">{staff.full_name}</TableCell>
-                        <TableCell>{staff.designation}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">{stats.present}</Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                           <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">{stats.absent}</Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{stats.leave}</Badge>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {stats.present + stats.absent + stats.leave}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-green-600 uppercase text-center">Present</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-red-600 uppercase text-center">Absent</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-orange-600 uppercase text-center">Leave</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase text-center">Total tracked</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {summaryData.map(staff => (
+                    <tr key={staff.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{staff.name}</div>
+                        <div className="text-xs text-gray-500">{staff.designation}</div>
+                      </td>
+                      <td className="px-6 py-4 text-center font-bold text-green-600 bg-green-50/30">{staff.present}</td>
+                      <td className="px-6 py-4 text-center font-bold text-red-600 bg-red-50/30">{staff.absent}</td>
+                      <td className="px-6 py-4 text-center font-bold text-orange-600 bg-orange-50/30">{staff.leave}</td>
+                      <td className="px-6 py-4 text-center text-gray-500">{staff.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  );
+  )
 }

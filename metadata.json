@@ -1,6 +1,5 @@
 {
-  "name": "MedCore - Hospital & Diagnostic Management",
-  "description": "A comprehensive web application for hospital administration, patient management, and diagnostic tracking.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "Staff Register Pro",
+  "description": "Professional staff registration and attendance management system with monthly summaries.",
+  "requestFramePermissions": []
 }
