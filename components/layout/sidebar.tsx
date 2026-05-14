@@ -24,6 +24,7 @@ const sidebarLinks = [
   { name: "ID Cards", href: "/id-cards", icon: BadgeIcon },
   { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Staff Register", href: "/staff", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Death Registry", href: "/death-registry", icon: FileText },
 ];

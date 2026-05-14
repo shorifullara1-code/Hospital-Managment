@@ -155,6 +155,45 @@ CREATE POLICY "Allow anonymous insert access" on public.death_certificates FOR I
 CREATE POLICY "Allow anonymous update access" on public.death_certificates FOR UPDATE USING (true);
 CREATE POLICY "Allow anonymous delete access" on public.death_certificates FOR DELETE USING (true);
 
+CREATE TABLE public.staff (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    staff_id VARCHAR(50) UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    designation VARCHAR(100),
+    department VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'Active'
+);
+
+CREATE TABLE public.staff_attendance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    staff_id UUID REFERENCES public.staff(id) ON DELETE CASCADE,
+    attendance_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL, -- 'Present', 'Absent', 'Leave'
+    notes TEXT,
+    UNIQUE(staff_id, attendance_date)
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_attendance ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anonymous read access" on public.staff FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.staff FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.staff FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.staff FOR DELETE USING (true);
+
+CREATE POLICY "Allow anonymous read access" on public.staff_attendance FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.staff_attendance FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.staff_attendance FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.staff_attendance FOR DELETE USING (true);
+
+alter publication supabase_realtime add table public.staff;
+alter publication supabase_realtime add table public.staff_attendance;
+
 alter publication supabase_realtime add table public.death_certificates;
 begin;
   drop publication if exists supabase_realtime;
