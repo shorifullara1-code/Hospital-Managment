@@ -18,7 +18,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, Dr. Smith. Here's an overview of today's activities.
+          Welcome back, Dr. Smith. Here&apos;s an overview of today&apos;s activities.
         </p>
       </div>
 

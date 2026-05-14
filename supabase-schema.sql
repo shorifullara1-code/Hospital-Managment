@@ -206,3 +206,68 @@ alter publication supabase_realtime add table public.diagnostics_labs;
 alter publication supabase_realtime add table public.hospital_settings;
 alter publication supabase_realtime add table public.prescriptions;
 
+CREATE TABLE public.beds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    type VARCHAR(50) NOT NULL, -- 'General', 'ICU', 'Private', 'Semi-Private'
+    floor VARCHAR(20),
+    status VARCHAR(20) DEFAULT 'Available', -- 'Available', 'Occupied', 'Maintenance'
+    price_per_day DECIMAL(10, 2) NOT NULL DEFAULT 0.00
+);
+
+CREATE TABLE public.ipd_admissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    admission_id VARCHAR(50) UNIQUE NOT NULL,
+    patient_id UUID REFERENCES public.patients(id) ON DELETE CASCADE,
+    bed_id UUID REFERENCES public.beds(id) ON DELETE SET NULL,
+    doctor_id UUID REFERENCES public.doctors(id) ON DELETE SET NULL,
+    admission_date TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    expected_discharge_date TIMESTAMP WITH TIME ZONE,
+    actual_discharge_date TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'Admitted', -- 'Admitted', 'Discharged'
+    diagnosis TEXT,
+    notes TEXT
+);
+
+CREATE TABLE public.nursing_charts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    admission_id UUID REFERENCES public.ipd_admissions(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL, -- 'Vitals', 'Medication', 'Observation'
+    recorded_by UUID REFERENCES public.staff(id) ON DELETE SET NULL,
+    vital_type VARCHAR(50), -- 'BP', 'Temp', 'Pulse', 'SpO2'
+    vital_value VARCHAR(50),
+    medication_name TEXT,
+    dosage TEXT,
+    notes TEXT,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS
+ALTER TABLE public.beds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ipd_admissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.nursing_charts ENABLE ROW LEVEL SECURITY;
+
+-- Anonymous policies
+CREATE POLICY "Allow anonymous read access" on public.beds FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.beds FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.beds FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.beds FOR DELETE USING (true);
+
+CREATE POLICY "Allow anonymous read access" on public.ipd_admissions FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.ipd_admissions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.ipd_admissions FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.ipd_admissions FOR DELETE USING (true);
+
+CREATE POLICY "Allow anonymous read access" on public.nursing_charts FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert access" on public.nursing_charts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update access" on public.nursing_charts FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete access" on public.nursing_charts FOR DELETE USING (true);
+
+-- Realtime
+alter publication supabase_realtime add table public.beds;
+alter publication supabase_realtime add table public.ipd_admissions;
+alter publication supabase_realtime add table public.nursing_charts;
+
