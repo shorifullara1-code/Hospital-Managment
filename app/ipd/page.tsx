@@ -42,9 +42,18 @@ export default function IPDPage() {
   }, [fetchData]);
 
   const handleSaveBed = async () => {
-    if (!newBed.name) return;
+    if (!newBed.name) {
+      alert("Please enter a bed name.");
+      return;
+    }
+    
+    console.log("Attempting to save bed:", newBed);
     const { error } = await supabase.from("beds").insert([newBed]);
-    if (!error) {
+    
+    if (error) {
+      console.error("Supabase Error saving bed:", error);
+      alert(`Error saving bed: ${error.message}`);
+    } else {
       setIsBedDialogOpen(false);
       setNewBed({ name: "", type: "General" });
       fetchData();
@@ -52,19 +61,35 @@ export default function IPDPage() {
   };
 
   const handleSaveAdmission = async () => {
-    if (!newAdmission.patient_id || !newAdmission.bed_id) return;
+    if (!newAdmission.patient_id || !newAdmission.bed_id) {
+      alert("Please select both a patient and an available bed.");
+      return;
+    }
+    
+    console.log("Attempting to save admission:", newAdmission);
     
     // 1. Create admission
     const { error: admError } = await supabase.from("admissions").insert([newAdmission]);
     
-    if (!admError) {
-      // 2. Update bed status to Occupied
-      await supabase.from("beds").update({ status: "Occupied" }).eq("id", newAdmission.bed_id);
-      
-      setIsAdmissionDialogOpen(false);
-      setNewAdmission({ patient_id: "", bed_id: "", admission_date: new Date().toISOString().split('T')[0] });
-      fetchData();
+    if (admError) {
+      console.error("Supabase Error saving admission:", admError);
+      alert(`Error saving admission: ${admError.message}`);
+      return;
     }
+
+    // 2. Update bed status to Occupied
+    const { error: bedError } = await supabase
+      .from("beds")
+      .update({ status: "Occupied" })
+      .eq("id", newAdmission.bed_id);
+    
+    if (bedError) {
+      console.error("Error updating bed status:", bedError);
+    }
+      
+    setIsAdmissionDialogOpen(false);
+    setNewAdmission({ patient_id: "", bed_id: "", admission_date: new Date().toISOString().split('T')[0] });
+    fetchData();
   };
 
   return (
