@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Plus, UserPlus, BedIcon, Activity } from "lucide-react";
+import { Building2, Plus, UserPlus, BedIcon, Activity, Scan, Calendar } from "lucide-react";
+import { BarcodeScanner } from "@/components/ipd/barcode-scanner";
 
 export default function IPDPage() {
   const [beds, setBeds] = useState<any[]>([]);
@@ -20,6 +21,7 @@ export default function IPDPage() {
   const [loading, setLoading] = useState(true);
   const [isBedDialogOpen, setIsBedDialogOpen] = useState(false);
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Form states
   const [newBed, setNewBed] = useState({ name: "", type: "General" });
@@ -92,8 +94,31 @@ export default function IPDPage() {
     fetchData();
   };
 
+  const handleScan = (decodedText: string) => {
+    console.log("Scanned:", decodedText);
+    setIsScanning(false);
+    
+    // Find patient by ID or identifier string
+    const patient = patients.find(p => 
+      p.patient_id?.toLowerCase() === decodedText.toLowerCase() || 
+      p.id.toString() === decodedText
+    );
+
+    if (patient) {
+      setNewAdmission(prev => ({ ...prev, patient_id: patient.id.toString() }));
+    } else {
+      alert(`Patient "${decodedText}" not found in registry.`);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 flex flex-col gap-6">
+      {isScanning && (
+        <BarcodeScanner 
+          onScan={handleScan} 
+          onClose={() => setIsScanning(false)} 
+        />
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Inpatient Department (IPD)</h1>
@@ -157,21 +182,33 @@ export default function IPDPage() {
                 <DialogDescription>Admit a patient to an available bed.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Select Patient</Label>
-                  <Select 
-                    value={newAdmission.patient_id} 
-                    onValueChange={(val) => setNewAdmission({ ...newAdmission, patient_id: val })}
+                <div className="flex items-end gap-2">
+                  <div className="grid gap-2 flex-1">
+                    <Label>Select Patient</Label>
+                    <Select 
+                      value={newAdmission.patient_id} 
+                      onValueChange={(val) => setNewAdmission({ ...newAdmission, patient_id: val })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose Patient" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {patients.map(p => (
+                          <SelectItem key={p.id} value={p.id.toString()}>{p.full_name} ({p.patient_id})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="mb-0.5 border-teal-200 text-teal-600 hover:bg-teal-50"
+                    onClick={() => setIsScanning(true)}
+                    title="Scan Patient Barcode"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose Patient" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {patients.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.full_name} ({p.patient_id})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <Scan className="h-4 w-4" />
+                  </Button>
                 </div>
                 <div className="grid gap-2">
                   <Label>Available Beds</Label>

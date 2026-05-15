@@ -1,6 +1,6 @@
 {
   "name": "MedCore - Hospital & Diagnostic Management",
   "description": "A comprehensive web application for hospital administration, patient management, and diagnostic tracking.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

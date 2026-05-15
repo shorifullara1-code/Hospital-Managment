@@ -233,9 +233,11 @@ export default function StaffPage() {
           <p className="text-muted-foreground font-medium">Manage hospital staff and their attendance records.</p>
         </div>
         <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
-          <DialogTrigger render={<Button className="bg-slate-900 hover:bg-slate-800 text-white font-semibold" />}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Register Staff
+          <DialogTrigger asChild>
+            <Button className="bg-slate-900 hover:bg-slate-800 text-white font-semibold">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Register Staff
+            </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>

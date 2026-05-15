@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -17,14 +18,18 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.45.4",
     "@tailwindcss/postcss": "^4.3.0",
+    "@yudiel/react-qr-scanner": "^2.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.446.0",
     "motion": "^11.5.4",
     "next": "15.5.18",
     "react": "^19.0.0",
+    "react-barcode": "^1.6.1",
     "react-dom": "^19.0.0",
+    "react-to-print": "^3.3.0",
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7"

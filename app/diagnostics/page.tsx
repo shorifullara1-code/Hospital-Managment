@@ -193,9 +193,11 @@ export default function DiagnosticsView() {
         </div>
         
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger render={<Button />}>
-            <PlayCircle className="mr-2 h-4 w-4" />
-            New Test Request
+          <DialogTrigger asChild>
+            <Button>
+              <PlayCircle className="mr-2 h-4 w-4" />
+              New Test Request
+            </Button>
           </DialogTrigger>
           <DialogContent>
              <DialogHeader>
