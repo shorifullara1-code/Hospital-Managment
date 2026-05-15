@@ -12,7 +12,6 @@ import {
   FileText,
   Settings,
   CreditCard,
-  BadgeIcon,
   Building2,
   LogOut,
   Cross
@@ -26,7 +25,7 @@ const sidebarLinks = [
   { name: "Pharmacy", href: "/pharmacy", icon: Activity },
   { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Lab Tests", href: "/diagnostics", icon: Activity },
-  { name: "Wards", href: "/ipd", icon: Building2 },
+  { name: "IPD Patients", href: "/ipd", icon: Building2 }, // Changed from Wards to IPD Patients
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

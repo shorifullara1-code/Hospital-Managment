@@ -14,7 +14,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
-import { Badge } from "@/components/ui/badge";
 
 export function Header() {
   return (
@@ -22,10 +21,10 @@ export function Header() {
       <div className="flex items-center gap-4">
         <Sheet>
           <SheetTrigger className={buttonVariants({ variant: "ghost", size: "icon", className: "md:hidden" })}>
-              <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
-            <Sidebar />
+             <Sidebar />
           </SheetContent>
         </Sheet>
         
