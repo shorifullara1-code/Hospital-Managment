@@ -149,7 +149,7 @@ export default function ReceiptView(props: { params: Promise<{ id: string }> }) 
                     <div className="text-xs text-gray-500 mt-1">Test Date: {labData.test_date}</div>
                  </td>
                  <td className="py-4 text-gray-700">{labData.category}</td>
-                 <td className="py-4 text-right font-medium text-gray-900">${testPrice}</td>
+                 <td className="py-4 text-right font-medium text-gray-900">৳{testPrice}</td>
                </tr>
              </tbody>
            </table>
@@ -158,19 +158,19 @@ export default function ReceiptView(props: { params: Promise<{ id: string }> }) 
               <div className="w-1/2">
                  <div className="flex justify-between py-2 border-b border-gray-100">
                     <span className="text-gray-600 font-medium">Subtotal</span>
-                    <span className="font-medium text-gray-900">${testPrice}</span>
+                    <span className="font-medium text-gray-900">৳{testPrice}</span>
                  </div>
                  <div className="flex justify-between py-2 border-b border-gray-100">
                     <span className="text-gray-600 font-medium">Discount</span>
-                    <span className="font-medium text-gray-900">$0</span>
+                    <span className="font-medium text-gray-900">৳0</span>
                  </div>
                  <div className="flex justify-between py-2 border-b border-gray-100">
                     <span className="text-gray-600 font-bold">Total Paid</span>
-                    <span className="font-bold text-green-600">${paidAmount}</span>
+                    <span className="font-bold text-green-600">৳{paidAmount}</span>
                  </div>
                  <div className="flex justify-between py-4 mt-2">
                     <span className="text-xl font-bold text-gray-900 tracking-tight">Remaining Due</span>
-                    <span className="text-xl font-bold text-primary">${Math.max(0, testPrice - paidAmount)}</span>
+                    <span className="text-xl font-bold text-primary">৳{Math.max(0, testPrice - paidAmount)}</span>
                  </div>
               </div>
            </div>

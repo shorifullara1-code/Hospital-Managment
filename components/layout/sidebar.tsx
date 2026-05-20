@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -31,15 +33,42 @@ const sidebarLinks = [
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const [hospitalName, setHospitalName] = useState("CityGeneral");
+  const [hospitalLogo, setHospitalLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('hospital_settings');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.name) setHospitalName(parsed.name);
+        if (parsed.logo) setHospitalLogo(parsed.logo);
+      } catch (e) {}
+    }
+    
+    // Also fetch from supabase to be sure
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('hospital_settings').select('name, logo').eq('id', 1).single();
+      if (data) {
+        if (data.name) setHospitalName(data.name);
+        if (data.logo) setHospitalLogo(data.logo);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   return (
     <aside className={cn("w-64 flex flex-col bg-[#052A24] text-white", className)}>
       <div className="flex h-16 items-center px-6 gap-3">
-        <div className="bg-[#15D1A6] p-1.5 rounded-lg">
-          <Cross className="h-5 w-5 text-[#052A24]" />
+        <div className="bg-[#15D1A6] p-1.5 rounded-lg overflow-hidden flex items-center justify-center min-w-8 min-h-8">
+          {hospitalLogo ? (
+            <img src={hospitalLogo} alt="Logo" className="h-6 w-6 object-contain" />
+          ) : (
+            <Cross className="h-5 w-5 text-[#052A24]" />
+          )}
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-sm leading-none">CityGeneral</span>
+          <span className="font-bold text-sm leading-none">{hospitalName}</span>
           <span className="text-[10px] text-teal-200 opacity-70">Hospital System</span>
         </div>
       </div>

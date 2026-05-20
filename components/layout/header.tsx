@@ -1,6 +1,8 @@
 "use client";
 
 import { Bell, Menu, Scan } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +18,40 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 
 export function Header() {
+  const [hospitalInfo, setHospitalInfo] = useState({
+    name: "City General Hospital",
+    address: "Dhaka"
+  });
+
+  useEffect(() => {
+    const stored = localStorage.getItem('hospital_settings');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.name) {
+           // Extract city from address or just use address
+           let addr = parsed.address || "Dhaka";
+           if (addr.includes(',')) {
+              addr = addr.split(',').pop()?.trim() || addr;
+           }
+           setHospitalInfo({ name: parsed.name, address: addr });
+        }
+      } catch (e) {}
+    }
+    
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('hospital_settings').select('name, address').eq('id', 1).single();
+      if (data) {
+        let addr = data.address || "Dhaka";
+        if (addr.includes(',')) {
+           addr = addr.split(',').pop()?.trim() || addr;
+        }
+        setHospitalInfo({ name: data.name, address: addr });
+      }
+    };
+    fetchSettings();
+  }, []);
+
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-4 sm:px-8">
       <div className="flex items-center gap-4">
@@ -30,7 +66,7 @@ export function Header() {
         
         <div className="flex flex-col">
           <h2 className="text-sm font-bold text-slate-900 leading-none">Dashboard</h2>
-          <span className="text-[10px] text-slate-400 font-medium mt-1">City General Hospital • Dhaka</span>
+          <span className="text-[10px] text-slate-400 font-medium mt-1">{hospitalInfo.name} • {hospitalInfo.address}</span>
         </div>
       </div>
 

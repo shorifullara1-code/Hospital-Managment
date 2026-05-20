@@ -311,7 +311,7 @@ export default function DiagnosticsView() {
                     <SelectTrigger><SelectValue placeholder="Select from catalog..." /></SelectTrigger>
                     <SelectContent>
                       {testCatalog.map(t => (
-                        <SelectItem key={t.id} value={t.name}>{t.name} - ${t.price}</SelectItem>
+                        <SelectItem key={t.id} value={t.name}>{t.name} - ৳{t.price}</SelectItem>
                       ))}
                     </SelectContent>
                  </Select>
@@ -498,7 +498,7 @@ export default function DiagnosticsView() {
                       </Select>
                    </div>
                    <div className="grid gap-2 w-[120px]">
-                      <Label>Price ($)</Label>
+                      <Label>Price (৳)</Label>
                       <Input required type="number" min="0" value={catalogForm.price} onChange={e => setCatalogForm({...catalogForm, price: e.target.value})} />
                    </div>
                    <Button type="submit" className="shrink-0"><Plus className="h-4 w-4 mr-2" />Add Test</Button>
@@ -522,7 +522,7 @@ export default function DiagnosticsView() {
                       <TableRow key={test.id}>
                         <TableCell className="font-medium">{test.name}</TableCell>
                         <TableCell>{test.category}</TableCell>
-                        <TableCell className="font-medium text-green-600">${test.price}</TableCell>
+                        <TableCell className="font-medium text-green-600">৳{test.price}</TableCell>
                         <TableCell className="text-right">
                            <Button variant="ghost" size="icon" onClick={() => handleRemoveCatalog(test.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>

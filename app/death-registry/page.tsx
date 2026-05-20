@@ -129,7 +129,7 @@ export default function DeathRegistryPage() {
          doctor_id: attendingDoctor || null,
          date_of_death: dateOfDeathObj.toISOString(),
          cause_of_death: causeOfDeath,
-         place_of_death: "MedCore Hospital",
+         place_of_death: hospitalSettings.name || "MedCore Hospital",
          notes: remarks
       };
 
@@ -409,7 +409,7 @@ export default function DeathRegistryPage() {
                  <div className="mt-20 pt-8 flex justify-between items-end border-t border-gray-300">
                     <div className="text-left text-sm text-gray-600">
                        <p>Date Issued: {new Date(viewingCert.issuedAt).toLocaleDateString()}</p>
-                       <p>Authorized by MedCore Administration</p>
+                       <p>Authorized by {hospitalSettings.name || "Administration"}</p>
                     </div>
                     <div className="text-center">
                        <div className="w-64 border-b border-gray-800 mb-2"></div>

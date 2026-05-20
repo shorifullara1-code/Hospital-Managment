@@ -30,12 +30,35 @@ function IdCardContent() {
   const [loading, setLoading] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
+  const [hospitalName, setHospitalName] = useState("MedCore Hospital");
+  const [hospitalAddress, setHospitalAddress] = useState("123 Health Ave, Medical City.");
   const componentRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
     documentTitle: patient ? `ID_Card_${patient.patient_id}` : 'ID_Card',
   });
+
+  useEffect(() => {
+     // Load hospital settings
+     const stored = localStorage.getItem('hospital_settings');
+     if (stored) {
+       try {
+         const parsed = JSON.parse(stored);
+         if (parsed.name) setHospitalName(parsed.name);
+         if (parsed.address) setHospitalAddress(parsed.address);
+       } catch (e) {}
+     }
+     
+     const fetchSettings = async () => {
+        const { data } = await supabase.from('hospital_settings').select('name, address').eq('id', 1).single();
+        if (data) {
+           if (data.name) setHospitalName(data.name);
+           if (data.address) setHospitalAddress(data.address);
+        }
+     };
+     fetchSettings();
+  }, []);
 
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
@@ -129,7 +152,7 @@ function IdCardContent() {
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
                 <QrCode className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="font-bold text-xl tracking-tight">MedCore Hospital</h2>
+              <h2 className="font-bold text-xl tracking-tight">{hospitalName}</h2>
               <p className="text-xs opacity-90 uppercase tracking-widest mt-1">Patient Identity Card</p>
             </div>
 
@@ -169,8 +192,8 @@ function IdCardContent() {
                   <Barcode value={patient.patient_id} format="CODE128" width={2.0} height={40} displayValue={true} background="transparent" />
                </div>
                <p className="text-[10px] text-gray-500 text-center w-full mt-2">
-                 If found, please return to MedCore Hospital. <br/>
-                 123 Health Ave, Medical City.
+                 If found, please return to {hospitalName}. <br/>
+                 {hospitalAddress}
                </p>
             </div>
           </div>
