@@ -39,6 +39,18 @@ export default function IPDPage() {
     setLoading(false);
   }, []);
 
+  const addLog = (log: any) => {
+    const newLog = {
+      id: Math.random().toString(36).substring(7),
+      timestamp: new Date().toISOString(),
+      ...log
+    };
+    const stored = localStorage.getItem('hospital_activity_logs');
+    const logs = stored ? JSON.parse(stored) : [];
+    const updated = [newLog, ...logs].slice(0, 500);
+    localStorage.setItem('hospital_activity_logs', JSON.stringify(updated));
+  };
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -78,6 +90,17 @@ export default function IPDPage() {
       alert(`Error saving admission: ${admError.message}`);
       return;
     }
+
+    // Log admission
+    const patient = patients.find(p => p.id.toString() === newAdmission.patient_id);
+    const bed = beds.find(b => b.id.toString() === newAdmission.bed_id);
+    addLog({
+      patient_id: patient?.patient_id || 'N/A',
+      patient_name: patient?.full_name || 'Unknown',
+      service_name: `Admitted to ${bed?.name} (${bed?.type})`,
+      amount: 0,
+      type: 'Admission'
+    });
 
     // 2. Update bed status to Occupied
     const { error: bedError } = await supabase

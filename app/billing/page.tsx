@@ -92,7 +92,7 @@ function BillingView() {
       localStorage.setItem('hospital_service_catalog', JSON.stringify(defaults));
     }
 
-    const storedLogs = localStorage.getItem('hospital_billing_logs');
+    const storedLogs = localStorage.getItem('hospital_activity_logs');
     if (storedLogs) {
       setActivityLogs(JSON.parse(storedLogs));
     }
@@ -106,7 +106,7 @@ function BillingView() {
     };
     setActivityLogs(prev => {
       const updated = [newLog, ...prev].slice(0, 500);
-      localStorage.setItem('hospital_billing_logs', JSON.stringify(updated));
+      localStorage.setItem('hospital_activity_logs', JSON.stringify(updated));
       return updated;
     });
   };
@@ -632,9 +632,9 @@ function BillingView() {
                       variant="outline" 
                       size="sm" 
                       onClick={() => {
-                        if (confirm("Are you sure you want to clear all billing logs?")) {
+                        if (confirm("Are you sure you want to clear all activity logs?")) {
                           setActivityLogs([]);
-                          localStorage.removeItem('hospital_billing_logs');
+                          localStorage.removeItem('hospital_activity_logs');
                         }
                       }}
                     >
@@ -681,7 +681,11 @@ function BillingView() {
                                    <TableCell>
                                       <Badge variant="outline" className={cn(
                                          "font-normal",
-                                         log.type.includes("Bulk") ? "border-blue-200 bg-blue-50 text-blue-700" : "border-teal-200 bg-teal-50 text-teal-700"
+                                         log.type === "Payment" && "border-teal-200 bg-teal-50 text-teal-700",
+                                         log.type === "Payment (Bulk)" && "border-blue-200 bg-blue-50 text-blue-700",
+                                         log.type === "Test Request" && "border-amber-200 bg-amber-50 text-amber-700",
+                                         log.type === "Test Result" && "border-purple-200 bg-purple-50 text-purple-700",
+                                         log.type === "Admission" && "border-indigo-200 bg-indigo-50 text-indigo-700"
                                       )}>
                                          {log.type}
                                       </Badge>

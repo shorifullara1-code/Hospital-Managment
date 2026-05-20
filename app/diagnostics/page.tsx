@@ -106,6 +106,18 @@ export default function DiagnosticsView() {
     };
   }, []);
 
+  const addLog = (log: any) => {
+    const newLog = {
+      id: Math.random().toString(36).substring(7),
+      timestamp: new Date().toISOString(),
+      ...log
+    };
+    const stored = localStorage.getItem('hospital_activity_logs');
+    const logs = stored ? JSON.parse(stored) : [];
+    const updated = [newLog, ...logs].slice(0, 500);
+    localStorage.setItem('hospital_activity_logs', JSON.stringify(updated));
+  };
+
   const handleScan = (detectedCodes: any[]) => {
     if (detectedCodes && detectedCodes.length > 0) {
       const code = detectedCodes[0].rawValue;
@@ -181,6 +193,16 @@ export default function DiagnosticsView() {
     }]);
 
     if (!error) {
+      // Log test request
+      const patient = patients.find(p => p.id === formData.patient_id);
+      addLog({
+        patient_id: patient?.patient_id || 'N/A',
+        patient_name: patient?.full_name || 'Unknown',
+        service_name: `Requested: ${formData.test_name}`,
+        amount: 0,
+        type: 'Test Request'
+      });
+
       setIsOpen(false);
       setFormData({
         patient_id: "",
@@ -216,6 +238,15 @@ export default function DiagnosticsView() {
       .eq("id", selectedLab.id);
 
     if (!error) {
+      // Log test completion
+      addLog({
+        patient_id: selectedLab.patients?.patient_id || 'N/A',
+        patient_name: selectedLab.patients?.full_name || 'Unknown',
+        service_name: `Completed: ${selectedLab.test_name}`,
+        amount: 0,
+        type: 'Test Result'
+      });
+
       setResultDialogOpen(false);
       setSelectedLab(null);
       setTestResult("");
