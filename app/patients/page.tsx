@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Plus, Search, User, Phone, Calendar, MoreVertical, CreditCard, Loader2, CalendarPlus, IdCard as IdIcon } from "lucide-react";
+import { Plus, Search, User, Phone, Calendar, MoreVertical, CreditCard, Loader2, CalendarPlus, IdCard as IdIcon, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,9 @@ function PatientsContent() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     full_name: "",
     age: "",
@@ -89,6 +92,30 @@ function PatientsContent() {
       alert("Error adding patient: " + error.message);
     }
     setRegistering(false);
+  };
+
+  const handleDeletePatient = async () => {
+    if (!patientToDelete) return;
+    setDeleting(true);
+
+    const { error } = await supabase
+      .from("patients")
+      .delete()
+      .eq("id", patientToDelete.id);
+
+    if (!error) {
+      setDeleteOpen(false);
+      setPatientToDelete(null);
+      fetchPatients();
+    } else {
+      console.error(error);
+      if (error.code === '23503') {
+        alert("Cannot delete patient. They have existing records (appointments, prescriptions, etc).");
+      } else {
+        alert("Error deleting patient: " + error.message);
+      }
+    }
+    setDeleting(false);
   };
 
   return (
@@ -212,6 +239,12 @@ function PatientsContent() {
                         <DropdownMenuItem className="text-red-600" onClick={() => router.push(`/death-registry?id=${patient.patient_id}`)}>
                           <MoreVertical className="mr-2 h-4 w-4" /> Report Death
                         </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={() => {
+                          setPatientToDelete(patient);
+                          setDeleteOpen(true);
+                        }}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Record
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -221,6 +254,26 @@ function PatientsContent() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Patient Record?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the patient record
+              for <span className="font-semibold text-slate-900">{patientToDelete?.full_name}</span> and remove all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4 gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeletePatient} disabled={deleting}>
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

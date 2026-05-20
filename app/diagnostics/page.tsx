@@ -38,6 +38,9 @@ export default function DiagnosticsView() {
   const [testResult, setTestResult] = useState("");
   const [savingResult, setSavingResult] = useState(false);
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [testToDelete, setTestToDelete] = useState<any>(null);
+
   const isLabsFullyPaid = (lab: any) => {
     const test = testCatalog.find(t => t.name === lab.test_name);
     const price = test ? test.price : 50;
@@ -170,6 +173,8 @@ export default function DiagnosticsView() {
     localStorage.setItem("hospital_service_catalog", JSON.stringify(updatedFull));
     
     setTestCatalog(updatedFull.filter((s: any) => s.category === 'Test' || s.category === 'Imaging'));
+    setDeleteConfirmOpen(false);
+    setTestToDelete(null);
   };
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -565,7 +570,17 @@ export default function DiagnosticsView() {
                         <TableCell>{test.category}</TableCell>
                         <TableCell className="font-medium text-green-600">৳{test.price}</TableCell>
                         <TableCell className="text-right">
-                           <Button variant="ghost" size="icon" onClick={() => handleRemoveCatalog(test.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                           <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => {
+                                 setTestToDelete(test);
+                                 setDeleteConfirmOpen(true);
+                              }} 
+                              className="text-destructive"
+                           >
+                              <Trash2 className="h-4 w-4" />
+                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -575,6 +590,25 @@ export default function DiagnosticsView() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Test Catalog Delete Confirmation */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Remove from Catalog?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <span className="font-semibold text-slate-900">{testToDelete?.name}</span> from the diagnostics catalog? 
+              This will not affect existing records but will prevent future requests.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4 gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => testToDelete && handleRemoveCatalog(testToDelete.id)}>
+              Confirm Remove
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Result Entry Dialog */}
       <Dialog open={resultDialogOpen} onOpenChange={setResultDialogOpen}>

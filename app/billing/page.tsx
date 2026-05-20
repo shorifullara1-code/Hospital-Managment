@@ -52,6 +52,9 @@ function BillingView() {
   const [currentPayAmount, setCurrentPayAmount] = useState("");
   const [activeTab, setActiveTab] = useState("billing");
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+
   const [serviceCatalog, setServiceCatalog] = useState<any[]>([]);
   const [catalogForm, setCatalogForm] = useState({ name: "", category: "Test", price: "0" });
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
@@ -130,6 +133,8 @@ function BillingView() {
     const updated = serviceCatalog.filter(s => s.id !== id);
     setServiceCatalog(updated);
     localStorage.setItem('hospital_service_catalog', JSON.stringify(updated));
+    setDeleteConfirmOpen(false);
+    setItemToDelete(null);
   };
 
   const performSearch = async (query: string) => {
@@ -604,7 +609,10 @@ function BillingView() {
                                             variant="ghost" 
                                             size="icon" 
                                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                            onClick={() => handleRemoveService(service.id)}
+                                            onClick={() => {
+                                               setItemToDelete(service);
+                                               setDeleteConfirmOpen(true);
+                                            }}
                                          >
                                             <Trash2 className="h-4 w-4" />
                                          </Button>
@@ -700,6 +708,25 @@ function BillingView() {
            </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Master Service Catalog Delete Confirmation */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+         <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+               <DialogTitle className="text-red-600">Remove from Catalog?</DialogTitle>
+               <DialogDescription>
+                  Are you sure you want to remove <span className="font-semibold text-slate-900">{itemToDelete?.name}</span> from the service catalog? 
+                  This will not affect existing bills but will prevent future selections.
+               </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end pt-4 gap-2">
+               <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+               <Button variant="destructive" onClick={() => itemToDelete && handleRemoveService(itemToDelete.id)}>
+                  Confirm Remove
+               </Button>
+            </div>
+         </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
