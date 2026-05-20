@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Search, Activity, Calendar, Heart, Wallet, ChevronRight, Loader2 } from "lucide-react";
+import { Users, Search, Activity, Calendar, Heart, Wallet, ChevronRight, Loader2, Scan } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,11 @@ import { deptData, revenueData, weeklyVisits } from "@/lib/data";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { DeptChart } from "@/components/dashboard/dept-chart";
 import { VisitsChart } from "@/components/dashboard/visits-chart";
+import { BarcodeScanner } from "@/components/ipd/barcode-scanner";
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
   const router = useRouter();
   const [stats, setStats] = useState({
     patients: 0,
@@ -52,8 +54,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleScan = (decodedText: string) => {
+    console.log("Scanned:", decodedText);
+    setIsScanning(false);
+    // Redirect to patients page with the scanned value
+    router.push(`/patients?q=${encodeURIComponent(decodedText)}`);
+  };
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 bg-slate-50 min-h-screen">
+      {isScanning && (
+        <BarcodeScanner 
+          onScan={handleScan} 
+          onClose={() => setIsScanning(false)} 
+        />
+      )}
       {/* Prominent Patient Quick Lookup Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#15807D] to-[#0E5C59] rounded-3xl p-8 md:p-12 text-white shadow-2xl shadow-teal-900/20 mb-2">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
@@ -70,19 +85,30 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <form onSubmit={handleSearch} className="relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-6 w-6 text-teal-400 group-focus-within:text-teal-600 transition-colors z-20" />
-            <Input 
-              className="bg-white text-slate-900 border-none h-16 pl-14 pr-32 rounded-2xl placeholder:text-slate-400 text-lg shadow-2xl focus-visible:ring-4 focus-visible:ring-teal-500/20 w-full transition-all"
-              placeholder="Search by ID, Name, or Phone Number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <form onSubmit={handleSearch} className="relative group flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-6 w-6 text-teal-400 group-focus-within:text-teal-600 transition-colors z-20" />
+              <Input 
+                className="bg-white text-slate-900 border-none h-16 pl-14 pr-32 rounded-2xl placeholder:text-slate-400 text-lg shadow-2xl focus-visible:ring-4 focus-visible:ring-teal-500/20 w-full transition-all"
+                placeholder="Search by ID, Name, or Phone Number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Button 
+                type="submit" 
+                className="absolute right-2 top-2 bottom-2 bg-[#15807D] hover:bg-[#0E5C59] text-white rounded-xl px-6 font-bold shadow-lg transition-transform active:scale-95"
+              >
+                Lookup
+              </Button>
+            </div>
             <Button 
-              type="submit" 
-              className="absolute right-2 top-2 bottom-2 bg-[#15807D] hover:bg-[#0E5C59] text-white rounded-xl px-6 font-bold shadow-lg transition-transform active:scale-95"
+              type="button"
+              variant="outline"
+              onClick={() => setIsScanning(true)}
+              className="h-16 w-16 rounded-2xl bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white transition-all shadow-xl"
+              title="Scan Barcode"
             >
-              Lookup
+              <Scan className="h-8 w-8" />
             </Button>
           </form>
           
