@@ -270,7 +270,7 @@ export default function BillingView() {
                  <div className="text-right">
                     <div className="text-sm text-muted-foreground">Total Dues</div>
                     <div className="text-2xl font-bold text-red-600">
-                      ${dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
+                      ৳{dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
                     </div>
                     {selectedDues.length > 0 && (
                       <div className="flex items-center gap-2 mt-4 justify-end">
@@ -327,13 +327,13 @@ export default function BillingView() {
                          </TableCell>
                          <TableCell>{d.test_date}</TableCell>
                          <TableCell className="font-medium">{d.test_name}</TableCell>
-                         <TableCell className="font-bold">${d.total_price.toFixed(2)}</TableCell>
-                         <TableCell className="text-green-600 font-medium">${(d.paid_amount || 0).toFixed(2)}</TableCell>
+                         <TableCell className="font-bold">৳{d.total_price.toFixed(2)}</TableCell>
+                         <TableCell className="text-green-600 font-medium">৳{(d.paid_amount || 0).toFixed(2)}</TableCell>
                          <TableCell>
                             {d.is_paid ? (
                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Paid full</Badge>
                             ) : (
-                               <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ${d.remaining_due.toFixed(2)}</Badge>
+                               <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ৳{d.remaining_due.toFixed(2)}</Badge>
                             )}
                          </TableCell>
                          <TableCell className="text-right">
@@ -360,7 +360,7 @@ export default function BillingView() {
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-         <DialogContent>
+         <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
                <DialogTitle>Make a Payment</DialogTitle>
                <DialogDescription>
@@ -368,34 +368,45 @@ export default function BillingView() {
                </DialogDescription>
             </DialogHeader>
             {selectedLab && (
-               <form onSubmit={processPayment} className="grid gap-4 py-4">
-                  <div className="flex justify-between pb-4 border-b">
-                     <span className="text-muted-foreground">Total Cost:</span>
-                     <span className="font-medium">${selectedLab.total_price}</span>
+               <form onSubmit={processPayment} className="space-y-6 pt-4">
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                    <div className="flex justify-between items-center text-sm">
+                       <span className="text-slate-500">Total Cost:</span>
+                       <span className="font-semibold">৳{selectedLab.total_price}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                       <span className="text-slate-500">Already Paid:</span>
+                       <span className="font-semibold text-green-600">৳{selectedLab.paid_amount || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t font-bold">
+                       <span className="text-slate-900">Remaining Due:</span>
+                       <span className="text-red-600">৳{selectedLab.remaining_due}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between pb-4 border-b">
-                     <span className="text-muted-foreground">Already Paid:</span>
-                     <span className="font-medium text-green-600">${selectedLab.paid_amount || 0}</span>
-                  </div>
-                  <div className="flex justify-between pb-4 border-b">
-                     <span className="text-muted-foreground font-semibold">Remaining Due:</span>
-                     <span className="font-bold text-red-600">${selectedLab.remaining_due}</span>
-                  </div>
-                  <div className="grid gap-2 pt-4">
-                     <Label>Payment Amount ($)</Label>
+
+                  <div className="space-y-2">
+                     <Label htmlFor="payment-amount" className="text-sm font-semibold">Payment Amount (৳)</Label>
                      <Input 
+                        id="payment-amount"
                         type="number" 
                         min="1" 
                         max={selectedLab.remaining_due} 
                         step="0.01"
+                        placeholder="Enter amount"
                         value={currentPayAmount}
                         onChange={(e) => setCurrentPayAmount(e.target.value)}
                         required
+                        className="h-12 text-lg"
                      />
                   </div>
-                  <div className="flex justify-end pt-4 gap-2">
-                     <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
-                     <Button type="submit">Confirm Payment</Button>
+
+                  <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+                     <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)} className="w-full sm:w-auto">
+                        Cancel
+                     </Button>
+                     <Button type="submit" className="w-full sm:w-auto bg-[#15807D] hover:bg-[#0E5C59]">
+                        Confirm Payment
+                     </Button>
                   </div>
                </form>
             )}
@@ -404,14 +415,14 @@ export default function BillingView() {
       
       {/* Bulk Payment Dialog */}
       <Dialog open={bulkPaymentDialogOpen} onOpenChange={setBulkPaymentDialogOpen}>
-         <DialogContent>
+         <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-               <DialogTitle>Process Payment</DialogTitle>
+               <DialogTitle>Process Bulk Payment</DialogTitle>
                <DialogDescription>
-                  Enter the amount the patient is paying for the {selectedDues.length} selected bills.
+                  Enter total payment for {selectedDues.length} selected bills.
                </DialogDescription>
             </DialogHeader>
-            <form onSubmit={processBulkPayment} className="grid gap-4 py-4">
+            <form onSubmit={processBulkPayment} className="space-y-6 pt-4">
                {(() => {
                   const items = dues.filter(d => selectedDues.includes(d.id));
                   const total = items.reduce((a, b) => a + b.total_price, 0);
@@ -419,36 +430,46 @@ export default function BillingView() {
                   const rem = items.reduce((a, b) => a + b.remaining_due, 0);
                   return (
                     <>
-                      <div className="flex justify-between pb-4 border-b">
-                         <span className="text-muted-foreground">Total Cost (Selected):</span>
-                         <span className="font-medium">${total.toFixed(2)}</span>
+                      <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                        <div className="flex justify-between items-center text-sm">
+                           <span className="text-slate-500">Total Cost (Selected):</span>
+                           <span className="font-semibold">৳{total.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                           <span className="text-slate-500">Already Paid:</span>
+                           <span className="font-semibold text-green-600">৳{paid.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t font-bold">
+                           <span className="text-slate-900">Remaining Due:</span>
+                           <span className="text-red-600">৳{rem.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between pb-4 border-b">
-                         <span className="text-muted-foreground">Already Paid:</span>
-                         <span className="font-medium text-green-600">${paid.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between pb-4 border-b">
-                         <span className="text-muted-foreground font-semibold">Remaining Due:</span>
-                         <span className="font-bold text-red-600">${rem.toFixed(2)}</span>
-                      </div>
-                      <div className="grid gap-2 pt-4">
-                         <Label>Payment Amount ($)</Label>
+
+                      <div className="space-y-2">
+                         <Label htmlFor="bulk-payment-amount" className="text-sm font-semibold">Payment Amount (৳)</Label>
                          <Input 
+                            id="bulk-payment-amount"
                             type="number" 
                             min="1" 
                             max={rem} 
                             step="0.01"
+                            placeholder="Enter amount"
                             value={currentPayAmount}
                             onChange={(e) => setCurrentPayAmount(e.target.value)}
                             required
+                            className="h-12 text-lg"
                          />
                       </div>
                     </>
                   );
                })()}
-               <div className="flex justify-end pt-4 gap-2">
-                  <Button type="button" variant="outline" onClick={() => setBulkPaymentDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit">Confirm Payment</Button>
+               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+                  <Button type="button" variant="outline" onClick={() => setBulkPaymentDialogOpen(false)} className="w-full sm:w-auto">
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="w-full sm:w-auto bg-[#15807D] hover:bg-[#0E5C59]">
+                    Confirm Payment
+                  </Button>
                </div>
             </form>
          </DialogContent>
@@ -528,7 +549,7 @@ export default function BillingView() {
                           <td className="py-3 px-4 text-sm text-gray-600">{index + 1}</td>
                           <td className="py-3 px-4 font-medium text-gray-800">{d.test_name}</td>
                           <td className="py-3 px-4 text-sm text-gray-600">{d.test_date}</td>
-                          <td className="py-3 px-4 text-right font-medium text-gray-800">${d.total_price.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right font-medium text-gray-800">৳{d.total_price.toFixed(2)}</td>
                        </tr>
                      ))}
                    </tbody>
