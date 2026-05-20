@@ -83,17 +83,17 @@ export default function DiagnosticsView() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, () => fetchData())
       .subscribe();
 
-    const stored = localStorage.getItem('diag_catalog');
+    const stored = localStorage.getItem('hospital_service_catalog');
     if (stored) {
-      setTestCatalog(JSON.parse(stored));
+      setTestCatalog(JSON.parse(stored).filter((s: any) => s.category === 'Test' || s.category === 'Imaging'));
     } else {
       const defaultCatalog = [
-        { id: "1", name: "Complete Blood Count (CBC)", category: "Hematology", price: 30 },
-        { id: "2", name: "Lipid Panel", category: "Biochemistry", price: 40 },
-        { id: "3", name: "MRI Scan - Brain", category: "Radiology", price: 500 }
+        { id: "1", name: "Complete Blood Count (CBC)", category: "Test", price: 300 },
+        { id: "2", name: "Lipid Panel", category: "Test", price: 450 },
+        { id: "3", name: "MRI Scan - Brain", category: "Imaging", price: 5000 }
       ];
       setTestCatalog(defaultCatalog);
-      localStorage.setItem("diag_catalog", JSON.stringify(defaultCatalog));
+      localStorage.setItem("hospital_service_catalog", JSON.stringify(defaultCatalog));
     }
     
     const paidStorage = localStorage.getItem('diag_paid_labs');
@@ -130,21 +130,34 @@ export default function DiagnosticsView() {
   const handleAddCatalog = (e: React.FormEvent) => {
     e.preventDefault();
     if (!catalogForm.name) return;
-    const newCatalog = [...testCatalog, {
+    
+    // Read current global catalog
+    const raw = localStorage.getItem('hospital_service_catalog');
+    const fullCatalog = raw ? JSON.parse(raw) : [];
+
+    const newService = {
        id: Math.random().toString(36).substring(7),
        name: catalogForm.name,
        category: catalogForm.category,
        price: parseFloat(catalogForm.price) || 0
-    }];
-    setTestCatalog(newCatalog);
-    localStorage.setItem("diag_catalog", JSON.stringify(newCatalog));
-    setCatalogForm({ name: "", category: "Hematology", price: "0" });
+    };
+
+    const updatedFull = [...fullCatalog, newService];
+    localStorage.setItem("hospital_service_catalog", JSON.stringify(updatedFull));
+    
+    // Refresh local filtered view
+    setTestCatalog(updatedFull.filter((s: any) => s.category === 'Test' || s.category === 'Imaging'));
+    setCatalogForm({ name: "", category: "Test", price: "0" });
   };
 
   const handleRemoveCatalog = (id: string) => {
-    const newCatalog = testCatalog.filter(t => t.id !== id);
-    setTestCatalog(newCatalog);
-    localStorage.setItem("diag_catalog", JSON.stringify(newCatalog));
+    const raw = localStorage.getItem('hospital_service_catalog');
+    const fullCatalog = raw ? JSON.parse(raw) : [];
+    
+    const updatedFull = fullCatalog.filter((t: any) => t.id !== id);
+    localStorage.setItem("hospital_service_catalog", JSON.stringify(updatedFull));
+    
+    setTestCatalog(updatedFull.filter((s: any) => s.category === 'Test' || s.category === 'Imaging'));
   };
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -486,14 +499,11 @@ export default function DiagnosticsView() {
                    </div>
                    <div className="grid gap-2">
                       <Label>Category</Label>
-                      <Select value={catalogForm.category} onValueChange={v => setCatalogForm({...catalogForm, category: v || ""})}>
+                      <Select value={catalogForm.category} onValueChange={v => setCatalogForm({...catalogForm, category: v || "Test"})}>
                         <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Hematology">Hematology</SelectItem>
-                          <SelectItem value="Biochemistry">Biochemistry</SelectItem>
-                          <SelectItem value="Radiology">Radiology</SelectItem>
-                          <SelectItem value="Pathology">Pathology</SelectItem>
-                          <SelectItem value="Microbiology">Microbiology</SelectItem>
+                          <SelectItem value="Test">Lab Test</SelectItem>
+                          <SelectItem value="Imaging">Imaging</SelectItem>
                         </SelectContent>
                       </Select>
                    </div>

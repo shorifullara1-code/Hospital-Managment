@@ -28,6 +28,7 @@ const sidebarLinks = [
   { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Lab Tests", href: "/diagnostics", icon: Activity },
   { name: "IPD Patients", href: "/ipd", icon: Building2 }, // Changed from Wards to IPD Patients
+  { name: "Activity Logs", href: "/billing?tab=logs", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

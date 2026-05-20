@@ -7,10 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, CreditCard, Receipt, ScanBarcode } from "lucide-react";
+import { Search, Loader2, CreditCard, Receipt, ScanBarcode, Plus, Trash2, Settings, List, History } from "lucide-react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default function BillingView() {
+function BillingView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [patient, setPatient] = useState<any>(null);
@@ -47,6 +50,20 @@ export default function BillingView() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [selectedLab, setSelectedLab] = useState<any>(null);
   const [currentPayAmount, setCurrentPayAmount] = useState("");
+  const [activeTab, setActiveTab] = useState("billing");
+
+  const [serviceCatalog, setServiceCatalog] = useState<any[]>([]);
+  const [catalogForm, setCatalogForm] = useState({ name: "", category: "Test", price: "0" });
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ["billing", "catalog", "logs"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Load local storage payments (stored as object { labId: numberPaid })
@@ -58,7 +75,62 @@ export default function BillingView() {
     if (settings) {
        setHospitalSettings(JSON.parse(settings));
     }
+
+    const storedCatalog = localStorage.getItem('hospital_service_catalog');
+    if (storedCatalog) {
+      setServiceCatalog(JSON.parse(storedCatalog));
+    } else {
+      // Default initial catalog
+      const defaults = [
+        { id: "s1", name: "General Consultation", category: "Consultation", price: 500 },
+        { id: "s2", name: "Specialist Consultation", category: "Consultation", price: 1000 },
+        { id: "s3", name: "Emergency Visit", category: "Consultation", price: 800 },
+        { id: "s4", name: "General Ward (Per Day)", category: "Room", price: 1500 },
+        { id: "s5", name: "ICU (Per Day)", category: "Room", price: 8000 },
+      ];
+      setServiceCatalog(defaults);
+      localStorage.setItem('hospital_service_catalog', JSON.stringify(defaults));
+    }
+
+    const storedLogs = localStorage.getItem('hospital_billing_logs');
+    if (storedLogs) {
+      setActivityLogs(JSON.parse(storedLogs));
+    }
   }, []);
+
+  const addLog = (log: any) => {
+    const newLog = {
+      id: Math.random().toString(36).substring(7),
+      timestamp: new Date().toISOString(),
+      ...log
+    };
+    setActivityLogs(prev => {
+      const updated = [newLog, ...prev].slice(0, 500);
+      localStorage.setItem('hospital_billing_logs', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleAddService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catalogForm.name) return;
+    const newService = {
+      id: Math.random().toString(36).substring(7),
+      name: catalogForm.name,
+      category: catalogForm.category,
+      price: parseFloat(catalogForm.price) || 0
+    };
+    const updated = [...serviceCatalog, newService];
+    setServiceCatalog(updated);
+    localStorage.setItem('hospital_service_catalog', JSON.stringify(updated));
+    setCatalogForm({ name: "", category: "Test", price: "0" });
+  };
+
+  const handleRemoveService = (id: string) => {
+    const updated = serviceCatalog.filter(s => s.id !== id);
+    setServiceCatalog(updated);
+    localStorage.setItem('hospital_service_catalog', JSON.stringify(updated));
+  };
 
   const performSearch = async (query: string) => {
     if (!query) return;
@@ -76,42 +148,85 @@ export default function BillingView() {
       
     if (patientData) {
        setPatient(patientData);
-       // Fetch unpaid tests (assuming using localstorage testCatalog for prices if not in DB)
+       
+       // 1. Fetch unpaid tests
        const { data: labsData } = await supabase
          .from('diagnostics_labs')
          .select('*, doctors(*)')
          .eq('patient_id', patientData.id)
          .order('created_at', { ascending: false });
 
-       if (labsData) {
-         const storedCatalog = localStorage.getItem('diag_catalog');
-         const catalog = storedCatalog ? JSON.parse(storedCatalog) : [];
-         
-         const labsWithPrices = labsData.map(lab => {
-            const test = catalog.find((t: any) => t.name === lab.test_name);
-            const price = test ? test.price : 50; // Default price
-            
-            // Check paid amount from localstorage (simple tracker)
-            let paidAmount = 0;
-            if (paidLabs[lab.id] === true) {
-               paidAmount = price; // Old format (boolean) mapping to full price
-            } else {
-               paidAmount = Number(paidLabs[lab.id]) || 0;
-            }
-            const remainingDue = price - paidAmount;
-            const isFullyPaid = remainingDue <= 0;
-            
-            return {
-               ...lab,
-               total_price: price,
-               paid_amount: paidAmount,
-               remaining_due: remainingDue,
-               is_paid: isFullyPaid
-            };
-         });
-         
-         setDues(labsWithPrices);
-       }
+       // 2. Fetch admissions for room charges
+       const { data: admsData } = await supabase
+         .from('admissions')
+         .select('*, beds(*)')
+         .eq('patient_id', patientData.id)
+         .order('created_at', { ascending: false });
+
+       const rawCatalog = localStorage.getItem('hospital_service_catalog');
+       const catalog = rawCatalog ? JSON.parse(rawCatalog) : [];
+       
+       const labDues = (labsData || []).map(lab => {
+          const test = catalog.find((t: any) => t.name === lab.test_name);
+          const price = test ? test.price : 500; // Default price
+          
+          let paidAmount = 0;
+          if (paidLabs[lab.id] === true) {
+             paidAmount = price;
+          } else {
+             paidAmount = Number(paidLabs[lab.id]) || 0;
+          }
+          const remainingDue = price - paidAmount;
+          
+          return {
+             ...lab,
+             id: lab.id,
+             test_name: lab.test_name,
+             total_price: price,
+             paid_amount: paidAmount,
+             remaining_due: remainingDue,
+             is_paid: remainingDue <= 0,
+             type: 'diagnostic'
+          };
+       });
+
+       const admDues = (admsData || []).map(adm => {
+          // Find bed type price
+          const bedType = adm.beds?.type || "General";
+          const serviceMatch = catalog.find((s: any) => s.category === 'Room' && s.name.toLowerCase().includes(bedType.toLowerCase()));
+          const dailyPrice = serviceMatch ? serviceMatch.price : 1500;
+          
+          // Calculate days (minimum 1)
+          const start = new Date(adm.admission_date);
+          const end = adm.status === 'Discharged' && adm.discharge_date ? new Date(adm.discharge_date) : new Date();
+          const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+          
+          const totalPrice = dailyPrice * diffDays;
+          
+          let paidAmount = 0;
+          const paidVal = paidLabs[`adm_${adm.id}`];
+          if (paidVal === true) {
+             paidAmount = totalPrice;
+          } else {
+             paidAmount = Number(paidVal) || 0;
+          }
+          
+          const remainingDue = totalPrice - paidAmount;
+
+          return {
+             ...adm,
+             id: `adm_${adm.id}`,
+             test_name: `${bedType} Ward Charge (${diffDays} days)`,
+             test_date: adm.admission_date,
+             total_price: totalPrice,
+             paid_amount: paidAmount,
+             remaining_due: remainingDue,
+             is_paid: remainingDue <= 0,
+             type: 'admission'
+          };
+       });
+       
+       setDues([...labDues, ...admDues]);
     } else {
        alert("Patient not found. Check Patient ID.");
     }
@@ -170,6 +285,15 @@ export default function BillingView() {
               
               newPaidLabs[d.id] = newTotalPaid;
               remainingBulkPayment -= paymentForThis;
+
+              // Log individual payment in bulk transaction
+              addLog({
+                patient_id: patient.patient_id,
+                patient_name: patient.full_name,
+                service_name: d.test_name,
+                amount: paymentForThis,
+                type: 'Payment (Bulk)'
+              });
               
               const newRemainingDue = d.total_price - newTotalPaid;
               return { ...d, paid_amount: newTotalPaid, remaining_due: newRemainingDue, is_paid: newRemainingDue <= 0 };
@@ -205,6 +329,15 @@ export default function BillingView() {
      const newPaid = { ...paidLabs, [selectedLab.id]: newTotalPaid };
      setPaidLabs(newPaid);
      localStorage.setItem('diag_paid_labs', JSON.stringify(newPaid));
+
+     // Log single payment
+     addLog({
+       patient_id: patient.patient_id,
+       patient_name: patient.full_name,
+       service_name: selectedLab.test_name,
+       amount: amountToAdd,
+       type: 'Payment'
+     });
      
      // Update current local state
      setDues(dues.map(d => {
@@ -223,140 +356,346 @@ export default function BillingView() {
 
   return (
     <div className={cn("flex flex-col gap-6 w-full max-w-6xl mx-auto", invoiceDialogOpen ? "print:hidden" : "")}>
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Billing & Dues</h1>
-        <p className="text-muted-foreground">
-          Manage patient test bills and collect due payments.
-        </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Billing & Dues</h1>
+          <p className="text-muted-foreground">
+            Manage patient bills and hospital service pricing.
+          </p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-           <CardTitle>Find Patient Bills</CardTitle>
-           <CardDescription>Enter Patient ID (e.g., PT-1234) or scan their ID Card barcode.</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <form onSubmit={handleSearch} className="flex gap-4 items-end max-w-lg">
-              <div className="flex gap-2 w-full items-end">
-                <div className="grid gap-2 flex-1">
-                   <Label>Patient ID</Label>
-                   <Input 
-                     value={searchQuery} 
-                     onChange={e => setSearchQuery(e.target.value)} 
-                     placeholder="e.g. PT-1234" 
-                     required
-                   />
-                </div>
-                <Button type="button" variant="outline" size="icon" onClick={() => setScannerOpen(true)}>
-                  <ScanBarcode className="h-5 w-5" />
-                </Button>
-              </div>
-              <Button type="submit" disabled={loading}>
-                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
-                 Search
-              </Button>
-           </form>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 max-w-[500px]">
+          <TabsTrigger value="billing">Patient Billing</TabsTrigger>
+          <TabsTrigger value="catalog">Service Catalog</TabsTrigger>
+          <TabsTrigger value="logs" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Activity Logs
+          </TabsTrigger>
+        </TabsList>
 
-      {patient && (
-         <Card>
-            <CardHeader className="border-b bg-muted/20 pb-4 mb-4">
-               <div className="flex justify-between items-start">
-                 <div>
-                    <CardTitle className="text-xl">{patient.full_name}</CardTitle>
-                    <CardDescription>ID: {patient.patient_id} | Phone: {patient.phone}</CardDescription>
-                 </div>
-                 <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Total Dues</div>
-                    <div className="text-2xl font-bold text-red-600">
-                      ৳{dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0)}
-                    </div>
-                    {selectedDues.length > 0 && (
-                      <div className="flex items-center gap-2 mt-4 justify-end">
-                         <Button onClick={() => setInvoiceDialogOpen(true)} variant="outline" className="bg-white">
-                           <Receipt className="h-4 w-4 mr-2" />
-                           Generate Invoice
-                         </Button>
-                         <Button onClick={() => {
-                            const totalSelectedRemaining = dues.filter(d => selectedDues.includes(d.id)).reduce((acc, curr) => acc + curr.remaining_due, 0);
-                            setCurrentPayAmount(totalSelectedRemaining.toString());
-                            setBulkPaymentDialogOpen(true);
-                         }} className="bg-green-600 hover:bg-green-700">
-                           <CreditCard className="h-4 w-4 mr-2" />
-                           Pay Selected ({selectedDues.length})
-                         </Button>
-                      </div>
-                    )}
-                 </div>
-               </div>
+        <TabsContent value="billing" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+               <CardTitle>Find Patient Bills</CardTitle>
+               <CardDescription>Enter Patient ID (e.g., PT-1234) or scan their ID Card barcode.</CardDescription>
             </CardHeader>
             <CardContent>
-               <Table>
-                 <TableHeader>
-                   <TableRow>
-                     <TableHead className="w-12">
-                        <Checkbox 
-                          checked={selectedDues.length > 0 && selectedDues.length === dues.length} 
-                          onCheckedChange={toggleSelectAll} 
-                          aria-label="Select all"
-                        />
-                     </TableHead>
-                     <TableHead>Test Date</TableHead>
-                     <TableHead>Test Name</TableHead>
-                     <TableHead>Total Cost</TableHead>
-                     <TableHead>Paid</TableHead>
-                     <TableHead>Status</TableHead>
-                     <TableHead className="text-right">Action</TableHead>
-                   </TableRow>
-                 </TableHeader>
-                 <TableBody>
-                   {dues.length === 0 ? (
-                     <TableRow>
-                       <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No diagnostics found for this patient.</TableCell>
-                     </TableRow>
-                   ) : (
-                     dues.map(d => (
-                       <TableRow key={d.id} className={selectedDues.includes(d.id) ? "bg-muted/50" : ""}>
-                         <TableCell>
-                           <Checkbox 
-                             checked={selectedDues.includes(d.id)}
-                             onCheckedChange={() => toggleSelectDue(d.id)}
-                             aria-label={`Select ${d.test_name}`}
-                           />
-                         </TableCell>
-                         <TableCell>{d.test_date}</TableCell>
-                         <TableCell className="font-medium">{d.test_name}</TableCell>
-                         <TableCell className="font-bold">৳{d.total_price.toFixed(2)}</TableCell>
-                         <TableCell className="text-green-600 font-medium">৳{(d.paid_amount || 0).toFixed(2)}</TableCell>
-                         <TableCell>
-                            {d.is_paid ? (
-                               <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Paid full</Badge>
-                            ) : (
-                               <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ৳{d.remaining_due.toFixed(2)}</Badge>
-                            )}
-                         </TableCell>
-                         <TableCell className="text-right">
-                            {!d.is_paid ? (
-                               <Button size="sm" onClick={() => { setSelectedLab(d); setCurrentPayAmount(d.remaining_due.toString()); setPaymentDialogOpen(true); }} className="bg-green-600 hover:bg-green-700">
-                                 <CreditCard className="h-4 w-4 mr-2" />
-                                 Pay
-                               </Button>
-                            ) : (
-                               <Button variant="ghost" size="sm" onClick={() => window.open(`/diagnostics/receipt/${d.id}`, '_blank')}>
-                                 <Receipt className="h-4 w-4 mr-2 text-green-600" />
-                                 Receipt
-                               </Button>
-                            )}
-                         </TableCell>
-                       </TableRow>
-                     ))
-                   )}
-                 </TableBody>
-               </Table>
+               <form onSubmit={handleSearch} className="flex gap-4 items-end max-w-lg">
+                  <div className="flex gap-2 w-full items-end">
+                    <div className="grid gap-2 flex-1">
+                       <Label>Patient ID</Label>
+                       <Input 
+                         value={searchQuery} 
+                         onChange={e => setSearchQuery(e.target.value)} 
+                         placeholder="e.g. PT-1234" 
+                         required
+                       />
+                    </div>
+                    <Button type="button" variant="outline" size="icon" onClick={() => setScannerOpen(true)}>
+                      <ScanBarcode className="h-5 w-5" />
+                    </Button>
+                  </div>
+                  <Button type="submit" disabled={loading} className="bg-[#15807D] hover:bg-[#0E5C59]">
+                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                     Search
+                  </Button>
+               </form>
             </CardContent>
-         </Card>
-      )}
+          </Card>
+
+          {patient && (
+             <Card>
+                <CardHeader className="border-b bg-muted/20 pb-4 mb-4">
+                   <div className="flex justify-between items-start">
+                     <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-teal-100 flex items-center justify-center text-[#15807D] font-bold text-xl">
+                          {patient.full_name.charAt(0)}
+                        </div>
+                        <div>
+                           <CardTitle className="text-xl">{patient.full_name}</CardTitle>
+                           <CardDescription>ID: {patient.patient_id} | Phone: {patient.phone}</CardDescription>
+                        </div>
+                     </div>
+                     <div className="text-right">
+                        <div className="text-sm text-muted-foreground">Total Dues</div>
+                        <div className="text-3xl font-bold text-red-600">
+                          ৳{dues.filter(d => !d.is_paid).reduce((acc, curr) => acc + curr.remaining_due, 0).toFixed(2)}
+                        </div>
+                        {selectedDues.length > 0 && (
+                          <div className="flex items-center gap-2 mt-4 justify-end">
+                             <Button onClick={() => setInvoiceDialogOpen(true)} variant="outline" className="bg-white">
+                               <Receipt className="h-4 w-4 mr-2" />
+                               Generate Invoice
+                             </Button>
+                             <Button onClick={() => {
+                                const totalSelectedRemaining = dues.filter(d => selectedDues.includes(d.id)).reduce((acc, curr) => acc + curr.remaining_due, 0);
+                                setCurrentPayAmount(totalSelectedRemaining.toString());
+                                setBulkPaymentDialogOpen(true);
+                             }} className="bg-green-600 hover:bg-green-700">
+                               <CreditCard className="h-4 w-4 mr-2" />
+                               Pay Selected ({selectedDues.length})
+                             </Button>
+                          </div>
+                        )}
+                     </div>
+                   </div>
+                </CardHeader>
+                <CardContent>
+                   <Table>
+                     <TableHeader>
+                       <TableRow>
+                         <TableHead className="w-12">
+                            <Checkbox 
+                              checked={selectedDues.length > 0 && selectedDues.length === dues.length} 
+                              onCheckedChange={toggleSelectAll} 
+                              aria-label="Select all"
+                            />
+                         </TableHead>
+                         <TableHead>Bill Date</TableHead>
+                         <TableHead>Service/Test Name</TableHead>
+                         <TableHead>Total Cost</TableHead>
+                         <TableHead>Paid</TableHead>
+                         <TableHead>Status</TableHead>
+                         <TableHead className="text-right">Action</TableHead>
+                       </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                       {dues.length === 0 ? (
+                         <TableRow>
+                           <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                             <div className="flex flex-col items-center gap-2">
+                                <List className="h-8 w-8 opacity-20" />
+                                <p>No outstanding bills found for this patient.</p>
+                             </div>
+                           </TableCell>
+                         </TableRow>
+                       ) : (
+                         dues.map(d => (
+                           <TableRow key={d.id} className={selectedDues.includes(d.id) ? "bg-muted/50 transition-colors" : "transition-colors"}>
+                             <TableCell>
+                               <Checkbox 
+                                 checked={selectedDues.includes(d.id)}
+                                 onCheckedChange={() => toggleSelectDue(d.id)}
+                                 aria-label={`Select ${d.test_name}`}
+                               />
+                             </TableCell>
+                             <TableCell>{d.test_date || d.created_at?.split('T')[0]}</TableCell>
+                             <TableCell className="font-medium">{d.test_name}</TableCell>
+                             <TableCell className="font-bold">৳{d.total_price.toFixed(2)}</TableCell>
+                             <TableCell className="text-green-600 font-medium">৳{(d.paid_amount || 0).toFixed(2)}</TableCell>
+                             <TableCell>
+                                {d.is_paid ? (
+                                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Paid full</Badge>
+                                ) : (
+                                   <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Due: ৳{d.remaining_due.toFixed(2)}</Badge>
+                                )}
+                             </TableCell>
+                             <TableCell className="text-right">
+                                {!d.is_paid ? (
+                                   <Button size="sm" onClick={() => { setSelectedLab(d); setCurrentPayAmount(d.remaining_due.toString()); setPaymentDialogOpen(true); }} className="bg-green-600 hover:bg-green-700">
+                                     <CreditCard className="h-4 w-4 mr-2" />
+                                     Pay
+                                   </Button>
+                                ) : (
+                                   <Button variant="ghost" size="sm" onClick={() => window.open(`/diagnostics/receipt/${d.id}`, '_blank')}>
+                                     <Receipt className="h-4 w-4 mr-2 text-green-600" />
+                                     Receipt
+                                   </Button>
+                                )}
+                             </TableCell>
+                           </TableRow>
+                         ))
+                       )}
+                     </TableBody>
+                   </Table>
+                </CardContent>
+             </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="catalog" className="mt-6">
+           <div className="grid gap-6">
+              <Card>
+                 <CardHeader>
+                    <div className="flex justify-between items-center">
+                       <div>
+                          <CardTitle>Master Service Catalog</CardTitle>
+                          <CardDescription>Manage prices for consultations, tests, and room charges.</CardDescription>
+                       </div>
+                       <Badge variant="outline" className="bg-slate-50">{serviceCatalog.length} Items</Badge>
+                    </div>
+                 </CardHeader>
+                 <CardContent>
+                    <form onSubmit={handleAddService} className="flex flex-wrap items-end gap-4 p-4 mb-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                       <div className="grid gap-2 flex-1 min-w-[240px]">
+                          <Label htmlFor="s-name">Service/Test Name</Label>
+                          <Input 
+                            id="s-name"
+                            required 
+                            placeholder="e.g. X-Ray Chest PA, General Ward" 
+                            className="bg-white"
+                            value={catalogForm.name} 
+                            onChange={e => setCatalogForm({...catalogForm, name: e.target.value})} 
+                          />
+                       </div>
+                       <div className="grid gap-2 w-full sm:w-[180px]">
+                          <Label htmlFor="s-cat">Category</Label>
+                          <select 
+                             id="s-cat"
+                             className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                             value={catalogForm.category}
+                             onChange={e => setCatalogForm({...catalogForm, category: e.target.value})}
+                          >
+                             <option value="Test">Lab Test</option>
+                             <option value="Consultation">Consultation</option>
+                             <option value="Room">Room Charge</option>
+                             <option value="Imaging">Imaging</option>
+                             <option value="Surgery">Surgery</option>
+                             <option value="Other">Other</option>
+                          </select>
+                       </div>
+                       <div className="grid gap-2 w-[140px]">
+                          <Label htmlFor="s-price">Price (৳)</Label>
+                          <Input 
+                            id="s-price"
+                            type="number" 
+                            required 
+                            min="0" 
+                            className="bg-white"
+                            value={catalogForm.price} 
+                            onChange={e => setCatalogForm({...catalogForm, price: e.target.value})} 
+                          />
+                       </div>
+                       <Button type="submit" className="bg-[#15807D] hover:bg-[#0E5C59]">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add to Catalog
+                       </Button>
+                    </form>
+
+                    <div className="rounded-md border">
+                       <Table>
+                          <TableHeader>
+                             <TableRow className="bg-slate-50">
+                                <TableHead>Service Name</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead>Default Price</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                             </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                             {serviceCatalog.length === 0 ? (
+                                <TableRow>
+                                   <TableCell colSpan={4} className="text-center py-8 text-muted-foreground italic">
+                                      The catalog is currently empty.
+                                   </TableCell>
+                                </TableRow>
+                             ) : (
+                                serviceCatalog.map((service) => (
+                                   <TableRow key={service.id} className="hover:bg-slate-50/50">
+                                      <TableCell className="font-semibold">{service.name}</TableCell>
+                                      <TableCell>
+                                         <Badge variant="secondary" className="font-normal">{service.category}</Badge>
+                                      </TableCell>
+                                      <TableCell className="font-bold text-teal-700">৳{service.price.toFixed(2)}</TableCell>
+                                      <TableCell className="text-right">
+                                         <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() => handleRemoveService(service.id)}
+                                         >
+                                            <Trash2 className="h-4 w-4" />
+                                         </Button>
+                                      </TableCell>
+                                   </TableRow>
+                                ))
+                             )}
+                          </TableBody>
+                       </Table>
+                    </div>
+                 </CardContent>
+              </Card>
+           </div>
+        </TabsContent>
+
+        <TabsContent value="logs" className="mt-6">
+           <Card>
+              <CardHeader>
+                 <div className="flex justify-between items-center">
+                    <div>
+                       <CardTitle>Transaction History</CardTitle>
+                       <CardDescription>Comprehensive log of all billing activities and payments.</CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        if (confirm("Are you sure you want to clear all billing logs?")) {
+                          setActivityLogs([]);
+                          localStorage.removeItem('hospital_billing_logs');
+                        }
+                      }}
+                    >
+                      Clear Logs
+                    </Button>
+                 </div>
+              </CardHeader>
+              <CardContent>
+                 <div className="rounded-md border h-[500px] overflow-y-auto">
+                    <Table>
+                       <TableHeader>
+                          <TableRow className="bg-slate-50 sticky top-0 z-10">
+                             <TableHead>Time</TableHead>
+                             <TableHead>Patient</TableHead>
+                             <TableHead>Service/Test</TableHead>
+                             <TableHead>Amount</TableHead>
+                             <TableHead>Type</TableHead>
+                          </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                          {activityLogs.length === 0 ? (
+                             <TableRow>
+                                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                                   <div className="flex flex-col items-center gap-2">
+                                      <Receipt className="h-8 w-8 opacity-10" />
+                                      <p>No billing activity recorded yet.</p>
+                                   </div>
+                                </TableCell>
+                             </TableRow>
+                          ) : (
+                             activityLogs.map((log) => (
+                                <TableRow key={log.id} className="hover:bg-slate-50/50">
+                                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {new Date(log.timestamp).toLocaleString()}
+                                   </TableCell>
+                                   <TableCell>
+                                      <div className="flex flex-col">
+                                         <span className="font-semibold">{log.patient_name}</span>
+                                         <span className="text-[10px] text-muted-foreground">{log.patient_id}</span>
+                                      </div>
+                                   </TableCell>
+                                   <TableCell className="max-w-[200px] truncate">{log.service_name}</TableCell>
+                                   <TableCell className="font-bold text-teal-700 font-mono">৳{log.amount.toFixed(2)}</TableCell>
+                                   <TableCell>
+                                      <Badge variant="outline" className={cn(
+                                         "font-normal",
+                                         log.type.includes("Bulk") ? "border-blue-200 bg-blue-50 text-blue-700" : "border-teal-200 bg-teal-50 text-teal-700"
+                                      )}>
+                                         {log.type}
+                                      </Badge>
+                                   </TableCell>
+                                </TableRow>
+                             ))
+                          )}
+                       </TableBody>
+                    </Table>
+                 </div>
+              </CardContent>
+           </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
@@ -566,18 +905,18 @@ export default function BillingView() {
                         const rem = items.reduce((a, b) => a + b.remaining_due, 0);
                         return (
                           <>
-                           <div className="flex justify-between items-center text-gray-600">
-                             <span>Subtotal</span>
-                             <span className="font-medium">${total.toFixed(2)}</span>
-                           </div>
-                           <div className="flex justify-between items-center text-green-700">
-                             <span>Paid Amount</span>
-                             <span className="font-medium border-b border-gray-300 pb-1">${paid.toFixed(2)}</span>
-                           </div>
-                           <div className="flex justify-between items-center text-xl font-bold pt-2 text-gray-900 border-t-2 border-gray-800">
-                             <span>Balance Due</span>
-                             <span>${rem.toFixed(2)}</span>
-                           </div>
+                            <div className="flex justify-between items-center text-gray-600">
+                              <span>Subtotal</span>
+                              <span className="font-medium">৳{total.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-green-700">
+                              <span>Paid Amount</span>
+                              <span className="font-medium border-b border-gray-300 pb-1">৳{paid.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xl font-bold pt-2 text-gray-900 border-t-2 border-gray-800">
+                              <span>Balance Due</span>
+                              <span>৳{rem.toFixed(2)}</span>
+                            </div>
                           </>
                         );
                      })()}
@@ -613,5 +952,17 @@ export default function BillingView() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={
+       <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+       </div>
+    }>
+      <BillingView />
+    </Suspense>
   );
 }
