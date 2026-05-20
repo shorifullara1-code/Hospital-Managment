@@ -33,6 +33,10 @@ export default function DiagnosticsView() {
   const [doctors, setDoctors] = useState<any[]>([]);
   const [paidLabs, setPaidLabs] = useState<Record<string, number | boolean>>({});
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [resultDialogOpen, setResultDialogOpen] = useState(false);
+  const [selectedLab, setSelectedLab] = useState<any>(null);
+  const [testResult, setTestResult] = useState("");
+  const [savingResult, setSavingResult] = useState(false);
 
   const isLabsFullyPaid = (lab: any) => {
     const test = testCatalog.find(t => t.name === lab.test_name);
@@ -179,9 +183,34 @@ export default function DiagnosticsView() {
     setAdding(false);
   };
 
-  const handleComplete = async (id: string) => {
-    await supabase.from("diagnostics_labs").update({ status: "Completed" }).eq("id", id);
-    fetchData();
+  const handleComplete = async (lab: any) => {
+    setSelectedLab(lab);
+    setTestResult(lab.test_results || "");
+    setResultDialogOpen(true);
+  };
+
+  const handleSaveResult = async () => {
+    if (!selectedLab) return;
+    setSavingResult(true);
+    
+    const { error } = await supabase
+      .from("diagnostics_labs")
+      .update({ 
+        status: "Completed",
+        test_results: testResult,
+        completed_at: new Date().toISOString()
+      })
+      .eq("id", selectedLab.id);
+
+    if (!error) {
+      setResultDialogOpen(false);
+      setSelectedLab(null);
+      setTestResult("");
+      fetchData();
+    } else {
+      alert("Error saving result: " + error.message);
+    }
+    setSavingResult(false);
   };
 
   return (
@@ -414,15 +443,25 @@ export default function DiagnosticsView() {
                             </Button>
                           )}
                           {lab.status === "Processing" && (
-                            <Button variant="outline" size="sm" onClick={() => handleComplete(lab.id)}>
-                              Mark Completed
+                            <Button variant="outline" size="sm" onClick={() => handleComplete(lab)}>
+                              Input Result
                             </Button>
                           )}
                           {lab.status === "Completed" && (
-                             <Button variant="ghost" size="sm" onClick={() => alert("Simulating PDF download for: " + lab.test_name)}>
-                               <Download className="h-4 w-4 mr-2" />
-                               Report
-                             </Button>
+                             <div className="flex gap-2 justify-end">
+                               <Button variant="ghost" size="sm" onClick={() => {
+                                 setSelectedLab(lab);
+                                 setTestResult(lab.test_results || "");
+                                 setResultDialogOpen(true);
+                               }}>
+                                 <FileText className="h-4 w-4 mr-2" />
+                                 View Result
+                               </Button>
+                               <Button variant="ghost" size="sm" onClick={() => alert("Simulating PDF download for: " + lab.test_name)}>
+                                 <Download className="h-4 w-4 mr-2" />
+                                 Report
+                               </Button>
+                             </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -495,6 +534,49 @@ export default function DiagnosticsView() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Result Entry Dialog */}
+      <Dialog open={resultDialogOpen} onOpenChange={setResultDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Test Results - {selectedLab?.test_id}</DialogTitle>
+            <DialogDescription>
+              Enter the diagnostic findings for {selectedLab?.test_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="bg-slate-50 p-4 rounded-lg border text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-slate-500 text-xs">Patient</p>
+                  <p className="font-semibold">{selectedLab?.patients?.full_name}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Test Date</p>
+                  <p className="font-semibold">{selectedLab?.test_date}</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="results">Clinical Findings & Results</Label>
+              <textarea
+                id="results"
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Type the laboratory findings here..."
+                value={testResult}
+                onChange={(e) => setTestResult(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setResultDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveResult} disabled={savingResult} className="bg-[#15807D] hover:bg-[#0E5C59]">
+              {savingResult ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Save & Complete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Scanner Dialog */}
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
