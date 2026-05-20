@@ -50,7 +50,7 @@ export default function IPDPage() {
     }
     
     console.log("Attempting to save bed:", newBed);
-    const { error } = await supabase.from("beds").insert([newBed]);
+    const { error } = await supabase.from("beds").insert([{ ...newBed, status: "Available" }]);
     
     if (error) {
       console.error("Supabase Error saving bed:", error);

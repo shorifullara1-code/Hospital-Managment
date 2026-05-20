@@ -19,9 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function DiagnosticsView() {
+  const router = useRouter();
   const [labs, setLabs] = useState<any[]>([]);
   const [testCatalog, setTestCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -405,7 +407,7 @@ export default function DiagnosticsView() {
                               className="mr-2 border-green-600 text-green-600 hover:bg-green-50" 
                               onClick={() => {
                                  // Redirect to billing page for partial or full payments
-                                 window.location.href = '/billing';
+                                 router.push('/billing');
                               }}
                             >
                               Collect Dues
